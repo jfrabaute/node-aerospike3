@@ -24,6 +24,11 @@ private:
   static Handle<Value> IsConnected(const Arguments& args);
   static Handle<Value> Close(const Arguments& args);
 
+  static Handle<Value> KeyExists(const Arguments& args);
+  static Handle<Value> KeyPut(const Arguments& args);
+  static Handle<Value> KeyGet(const Arguments& args);
+  static Handle<Value> KeyRemove(const Arguments& args);
+
 // Internal object methods
 private:
   void close();
