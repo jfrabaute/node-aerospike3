@@ -12,6 +12,11 @@ struct BatonBase {
   as_error  error;
 };
 
+struct BatonKeyExists: public BatonBase {
+  as_key key;
+  bool result;
+};
+
 }
 
 #endif // SRC_BATON_H
