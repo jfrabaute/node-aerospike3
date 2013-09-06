@@ -36,7 +36,7 @@ private:
 // Internal object properties
 private:
   as_config config;
-  as_error  err;
+  as_error  err; // TODO: remove this property
   aerospike as;
   bool      initialized;
   bool      connected;

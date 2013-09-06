@@ -9,6 +9,7 @@ extern "C" {
 
 #include "aerospike.h"
 #include "aerospike_client.h"
+#include "baton.h"
 
 using namespace v8;
 
@@ -18,33 +19,45 @@ namespace {
 
   bool initConfigEntry(const Handle<Object> &object, uint32_t id, as_config &config)
   {
-    Handle<Value> addrJs = object->Get(String::New("addr"));
+    Handle<Value> addrJs = object->Get(String::New("host"));
     Handle<Value> port = object->Get(String::New("port"));
-    if (!addrJs->IsString())
+    if (addrJs->IsUndefined())
     {
-      ThrowException(Exception::TypeError(String::New("Missing or non string \"addr\" property in config object")));
+        config.hosts[id].addr = "127.0.0.1";
+    }
+    else if (addrJs->IsString())
+    {
+      String::AsciiValue addr(addrJs);
+      if (addr.length() == 0)
+      {
+        ThrowException(Exception::TypeError(String::New("\"host\" property could not be converted into a valid ascii string")));
+        return false;
+      }
+      config.hosts[id].addr = strdup(*addr);
+      if (config.hosts[id].addr == NULL)
+      {
+        ThrowException(Exception::TypeError(String::New("Not Enough Memory: Unable to copy the addr data")));
+        return false;
+      }
+    }
+    else
+    {
+      ThrowException(Exception::TypeError(String::New("\"host\" property is not a string in config object")));
       return false;
     }
-    if (!port->IsUint32())
+    if (port->IsUndefined())
     {
-      ThrowException(Exception::TypeError(String::New("Missing or non unsigned int \"port\" property in config object")));
+      config.hosts[id].port = 3000;
+    }
+    else if (port->IsUint32())
+    {
+      config.hosts[id].port = port->Uint32Value();
+    }
+    else
+    {
+      ThrowException(Exception::TypeError(String::New("\"port\" property is not a number in config object")));
       return false;
     }
-  
-    String::AsciiValue addr(addrJs);
-    if (addr.length() == 0)
-    {
-      ThrowException(Exception::TypeError(String::New("\"addr\" property could not be converted into a valid ascii string")));
-      return false;
-    }
-
-    config.hosts[id].addr = strdup(*addr);
-    if (config.hosts[id].addr == NULL)
-    {
-      ThrowException(Exception::TypeError(String::New("Not Enough Memory: Unable to copy the addr data")));
-      return false;
-    }
-    config.hosts[id].port = port->Uint32Value();
 
     return true;
   }
@@ -238,13 +251,22 @@ Handle<Value> Client::Connect(const Arguments& args)
   as_config_init(&client->config);
 
   // Read the param
-  if (args.Length() < 1)
+  if (args.Length() != 2)
   {
-    ThrowException(Exception::TypeError(String::New("Missing config argument (object or array of objects)")));
+    ThrowException(Exception::TypeError(String::New("Invalid number of arguments.")));
     return scope.Close(Undefined());
   }
 
   uint8_t hosts = 0;
+
+  Local<Function> cb;
+
+  if (!args[1]->IsFunction())
+  {
+    ThrowException(Exception::TypeError(String::New("Wrong second argument type (must be callback function)")));
+    return scope.Close(Undefined());
+  }
+  cb = Local<Function>::Cast(args[1]);
 
   if (args[0]->IsArray())
   {
@@ -275,7 +297,7 @@ Handle<Value> Client::Connect(const Arguments& args)
   }
   else
   {
-    ThrowException(Exception::TypeError(String::New("Wrong argument type (must be either object or array of objects)")));
+    ThrowException(Exception::TypeError(String::New("Wrong first argument type (must be either object or array of objects)")));
     return scope.Close(Undefined());
   }
 
@@ -285,31 +307,57 @@ Handle<Value> Client::Connect(const Arguments& args)
     return scope.Close(Undefined());
   }
 
-  aerospike_init(&client->as, &client->config);
-  client->initialized = true;
+  // Run connect asynchronously
+  BatonConnect* baton = new BatonConnect();
+  baton->request.data = baton;
+  baton->callback = Persistent<Function>::New(cb);
+  baton->client = client;
+
+  uv_queue_work(uv_default_loop(), &baton->request,
+                /*AsyncWork*/
+                [] (uv_work_t* req) {
+                  BatonConnect* baton = static_cast<BatonConnect*>(req->data);
+                  aerospike_init(&baton->client->as, &baton->client->config);
+                  baton->status = aerospike_connect(&baton->client->as, &baton->error);
+                },
+                /*AsyncAfter*/
+                [] (uv_work_s* req, int status) {
+                  HandleScope scope;
+                  BatonConnect* baton = static_cast<BatonConnect*>(req->data);
+
+                  const unsigned argc = 1;
+                  Local<Value> argv[argc];
+                  if (baton->status == AEROSPIKE_OK)
+                  {
+                    argv[0] = Local<Value>::New(Undefined());
+                    baton->client->initialized = true;
+                  }
+                  else
+                  {
+                    // Create an error object
+                    argv[0] = Integer::New(baton->status);
+                  }
+                  baton->callback->Call(Context::GetCurrent()->Global(), argc, argv);
+                  baton->callback.Dispose();
+                  delete baton;
+                }
+  );
+
+  return Undefined();
+
+  // TODO Run the work asynchronously
   as_status connect_status = aerospike_connect(&client->as, &client->err);
   if (connect_status != AEROSPIKE_OK)
   {
-    if (args.Length() >= 2 && args[1]->IsFunction())
-    {
-      Local<Function> cb = Local<Function>::Cast(args[1]);
-      const unsigned argc = 1;
-      Local<Value> argv[argc] = { Local<Value>::New(String::Concat(String::New("Unable to connect to cluster. Error: "), Int32::New(connect_status)->ToString())) };
-      cb->Call(Context::GetCurrent()->Global(), argc, argv);
-      return scope.Close(Undefined());
-    }
+    Local<Function> cb = Local<Function>::Cast(args[1]);
+    const unsigned argc = 1;
+    Local<Value> argv[argc] = { Local<Value>::New(String::Concat(String::New("Unable to connect to cluster. Error: "), Int32::New(connect_status)->ToString())) };
+    cb->Call(Context::GetCurrent()->Global(), argc, argv);
+    return scope.Close(Undefined());
   }
   else
   {
     client->connected = true;
-  }
-
-  if (args.Length() >= 2 && args[1]->IsFunction())
-  {
-    Local<Function> cb = Local<Function>::Cast(args[1]);
-    const unsigned argc = 1;
-    Local<Value> argv[argc] = { Local<Value>::New(Undefined()) };
-    cb->Call(Context::GetCurrent()->Global(), argc, argv);
   }
 
   return scope.Close(Undefined());
