@@ -343,23 +343,6 @@ Handle<Value> Client::Connect(const Arguments& args)
                 }
   );
 
-  return Undefined();
-
-  // TODO Run the work asynchronously
-  as_status connect_status = aerospike_connect(&client->as, &client->err);
-  if (connect_status != AEROSPIKE_OK)
-  {
-    Local<Function> cb = Local<Function>::Cast(args[1]);
-    const unsigned argc = 1;
-    Local<Value> argv[argc] = { Local<Value>::New(String::Concat(String::New("Unable to connect to cluster. Error: "), Int32::New(connect_status)->ToString())) };
-    cb->Call(Context::GetCurrent()->Global(), argc, argv);
-    return scope.Close(Undefined());
-  }
-  else
-  {
-    client->connected = true;
-  }
-
   return scope.Close(Undefined());
 }
 
