@@ -201,7 +201,8 @@ Client::Client()
 
 Client::~Client()
 {
-  close();
+  as_error error;
+  close(error);
 }
 
 void Client::Init(Handle<Object> target)
@@ -246,7 +247,11 @@ Handle<Value> Client::Connect(const Arguments& args)
 
   Client *client = ObjectWrap::Unwrap<Client>(args.Holder());
 
-  client->close();
+  if (client->connected)
+  {
+    ThrowException(Exception::TypeError(String::New("Client already connected.")));
+    return scope.Close(Undefined());
+  }
 
   as_config_init(&client->config);
 
@@ -308,7 +313,7 @@ Handle<Value> Client::Connect(const Arguments& args)
   }
 
   // Run connect asynchronously
-  BatonConnect* baton = new BatonConnect();
+  BatonBase* baton = new BatonBase();
   baton->request.data = baton;
   baton->callback = Persistent<Function>::New(cb);
   baton->client = client;
@@ -316,25 +321,26 @@ Handle<Value> Client::Connect(const Arguments& args)
   uv_queue_work(uv_default_loop(), &baton->request,
                 /*AsyncWork*/
                 [] (uv_work_t* req) {
-                  BatonConnect* baton = static_cast<BatonConnect*>(req->data);
+                  BatonBase* baton = static_cast<BatonBase*>(req->data);
                   aerospike_init(&baton->client->as, &baton->client->config);
                   baton->status = aerospike_connect(&baton->client->as, &baton->error);
                 },
                 /*AsyncAfter*/
                 [] (uv_work_s* req, int status) {
                   HandleScope scope;
-                  BatonConnect* baton = static_cast<BatonConnect*>(req->data);
+                  BatonBase* baton = static_cast<BatonBase*>(req->data);
+
+                  baton->client->initialized = true;
 
                   const unsigned argc = 1;
                   Local<Value> argv[argc];
                   if (baton->status == AEROSPIKE_OK)
                   {
                     argv[0] = Local<Value>::New(Undefined());
-                    baton->client->initialized = true;
                   }
                   else
                   {
-                    // Create an error object
+                    // TODO: Create an error object
                     argv[0] = Integer::New(baton->status);
                   }
                   baton->callback->Call(Context::GetCurrent()->Global(), argc, argv);
@@ -361,17 +367,71 @@ Handle<Value> Client::Close(const Arguments& args)
   MY_NODE_ISOLATE_DECL
   MY_HANDLESCOPE
 
+  // Read the callback if present
+  if (args.Length() > 1)
+  {
+    ThrowException(Exception::TypeError(String::New("Invalid number of arguments.")));
+    return scope.Close(Undefined());
+  }
+
+  Local<Function> cb;
+  if (args.Length() == 1)
+  {
+    if (!args[0]->IsFunction())
+    {
+      ThrowException(Exception::TypeError(String::New("Wrong first argument type (must be callback function)")));
+      return scope.Close(Undefined());
+    }
+    cb = Local<Function>::Cast(args[0]);
+  }
+
   Client *client = ObjectWrap::Unwrap<Client>(args.Holder());
-  client->close();
+
+  // Run close asynchronously
+  BatonBase* baton = new BatonBase();
+  baton->request.data = baton;
+  if (!cb.IsEmpty())
+    baton->callback = Persistent<Function>::New(cb);
+  baton->client = client;
+
+  uv_queue_work(uv_default_loop(), &baton->request,
+                /*AsyncWork*/
+                [] (uv_work_t* req) {
+                  BatonBase* baton = static_cast<BatonBase*>(req->data);
+                  baton->status = baton->client->close(baton->error);
+                },
+                /*AsyncAfter*/
+                [] (uv_work_s* req, int status) {
+                  HandleScope scope;
+                  BatonBase* baton = static_cast<BatonBase*>(req->data);
+
+                  const unsigned argc = 1;
+                  Local<Value> argv[argc];
+                  if (baton->status == AEROSPIKE_OK)
+                  {
+                    argv[0] = Local<Value>::New(Undefined());
+                  }
+                  else
+                  {
+                    // TODO
+                    argv[0] = Integer::New(baton->status);
+                  }
+                  baton->callback->Call(Context::GetCurrent()->Global(), argc, argv);
+                  baton->callback.Dispose();
+                  delete baton;
+                }
+  );
+
 
   return scope.Close(Undefined());
 }
 
-void Client::close()
+as_status Client::close(as_error &err)
 {
+  as_status result = AEROSPIKE_OK;
   if (connected)
   {
-    aerospike_close(&as, &err);
+    result = aerospike_close(&as, &err);
     connected = false;
   }
   if (initialized)
@@ -379,6 +439,7 @@ void Client::close()
     aerospike_destroy(&as);
     initialized = false;
   }
+  return result;
 }
 
 Handle<Value> Client::KeyExists(const Arguments& args)

@@ -31,7 +31,7 @@ private:
 
 // Internal object methods
 private:
-  void close();
+  as_status close(as_error &err);
 
 // Internal object properties
 private:

@@ -3,7 +3,7 @@
 
 namespace nodejs_aerospike {
 
-struct BatonConnect {
+struct BatonBase {
   uv_work_t request;
   v8::Persistent<Function> callback;
 
