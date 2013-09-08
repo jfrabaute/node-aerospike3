@@ -448,6 +448,8 @@ Handle<Value> Client::KeyExists(const Arguments& args)
   MY_NODE_ISOLATE_DECL
   MY_HANDLESCOPE
 
+  Client *client = ObjectWrap::Unwrap<Client>(args.Holder());
+
   if (!client->connected)
   {
     ThrowException(Exception::Error(String::New("Client is not connected.")));
@@ -472,8 +474,6 @@ Handle<Value> Client::KeyExists(const Arguments& args)
     delete baton;
     return scope.Close(Undefined());
   }
-
-  Client *client = ObjectWrap::Unwrap<Client>(args.Holder());
 
   baton->request.data = baton;
   baton->callback = Persistent<Function>::New(cb);
@@ -723,6 +723,11 @@ Handle<Value> Client::KeyRemove(const Arguments& args)
 
   Client *client = ObjectWrap::Unwrap<Client>(args.Holder());
 
+  if (!client->connected)
+  {
+    ThrowException(Exception::Error(String::New("Client is not connected.")));
+    return scope.Close(Undefined());
+  }
   if (args.Length() < 2)
   {
     ThrowException(Exception::TypeError(String::New("Missing arguments")));
@@ -730,33 +735,49 @@ Handle<Value> Client::KeyRemove(const Arguments& args)
   }
   if (!args[1]->IsFunction())
   {
-    ThrowException(Exception::TypeError(String::New("Second argument is not a function")));
+    ThrowException(Exception::TypeError(String::New("Second argument is not a callback function")));
     return scope.Close(Undefined());
   }
 
-  as_key key;
-  if (!getKeyFromArg(args[0], key))
-    return scope.Close(Undefined());
+  BatonKey *baton = new BatonKey();
 
-  as_status status = aerospike_key_remove(&client->as, &client->err, NULL, &key);
-
-  if (status != AEROSPIKE_OK)
+  if (!getKeyFromArg(args[0], baton->key))
   {
-    Local<Function> cb = Local<Function>::Cast(args[1]);
-    const unsigned argc = 1;
-    Local<Value> argv[argc] = {
-      Local<Value>::New(String::Concat(String::New("Error: "), Int32::New(status)->ToString()))
-    };
-    cb->Call(Context::GetCurrent()->Global(), argc, argv);
+    delete baton;
     return scope.Close(Undefined());
   }
 
-  Local<Function> cb = Local<Function>::Cast(args[1]);
-  const unsigned argc = 1;
-  Local<Value> argv[argc] = {
-    Local<Value>::New(Undefined()),
-  };
-  cb->Call(Context::GetCurrent()->Global(), argc, argv);
+  baton->request.data = baton;
+  baton->callback = Persistent<Function>::New(Local<Function>::Cast(args[1]));
+  baton->client = client;
+
+  uv_queue_work(uv_default_loop(), &baton->request,
+                /*AsyncWork*/
+                [] (uv_work_t* req) {
+                  BatonKey* baton = static_cast<BatonKey*>(req->data);
+                  baton->status = aerospike_key_remove(&baton->client->as, &baton->client->err, NULL, &baton->key);
+                },
+                /*AsyncAfter*/
+                [] (uv_work_s* req, int status) {
+                  HandleScope scope;
+                  BatonKey* baton = static_cast<BatonKey*>(req->data);
+
+                  const unsigned argc = 1;
+                  Local<Value> argv[argc];
+                  if (baton->status == AEROSPIKE_OK)
+                  {
+                    argv[0] = Local<Value>::New(Undefined());
+                  }
+                  else
+                  {
+                    // TODO: Create an error object
+                    argv[0] = Integer::New(baton->status);
+                  }
+                  baton->callback->Call(Context::GetCurrent()->Global(), argc, argv);
+                  baton->callback.Dispose();
+                  delete baton;
+                }
+  );
 
   return scope.Close(Undefined());
 }

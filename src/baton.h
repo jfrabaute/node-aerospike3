@@ -12,8 +12,11 @@ struct BatonBase {
   as_error  error;
 };
 
-struct BatonKeyExists: public BatonBase {
+struct BatonKey: public BatonBase {
   as_key key;
+};
+
+struct BatonKeyExists: public BatonKey {
   bool result;
 };
 

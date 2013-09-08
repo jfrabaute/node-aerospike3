@@ -10,69 +10,70 @@ try {
 
 var client = new aerospike.Client();
 
-async.series([
-  function(cb) {
-    client.Connect({}, function(err) {
-      assert.equal(err, undefined, "failed connect");
-      cb(err);
-    })
-  },
-  function(cb) {
-    client.KeyPut({ns: "test", set: "set", key: "key"}, 
-      {col1new: "value1-new", col2new: "value2-new", col3new: 3},
-      function(err, result) {
-        assert.equal(err, undefined, "failed put");
-        cb(err);
-    });
-  }
-]);
 
-/*
-console.log("client.KeyExists");
-client.KeyExists({ns: "ns", set: "set", key: "key"}, function(err, result) {
-  // The namespace does not exists
-  if (!err)
-    throw "error KeyExists: " + err;
-});
+client.Connect({}, function(err) {
+  assert.equal(err, undefined, "failed connect");
 
-console.log("client.KeyRemove");
-client.KeyRemove({ns: "test", set: "set", key: "key"}, function(err) {
-});
+  async.parallel([
+    // Put-error
+    function(cb) {
+      client.KeyPut({ns: "ns", set: "set", key: "key"}, 
+        {col1new: "value1-new", col2new: "value2-new", col3new: 3},
+        function(err, result) {
+          assert.equal(err, 501, "error: Put-error");
+          cb(err == 501 ? undefined : err);
+      });
+    },
+    // Key-error
+    function(cb) {
+      client.KeyExists({ns: "test", set: "set", key: "__THIS_KEY_DOES_NOT_EXISTS__"},
+        function(err, result) {
+          assert.equal(err, undefined, "error: Key-error");
+          assert.equal(result, false);
+          cb(err == 501 ? undefined : err);
+      });
+    },
+  ], function(err, results) {
+    assert.equal(err, undefined);
+  })
 
-console.log("client.KeyExists");
-client.KeyExists({ns: "test", set: "set", key: "key"}, function(err, result) {
-  if (err)
-    throw "error KeyExists: " + err;
-  if (result)
-    throw "error KeyExists: found!";
-});
-
-
-console.log("client.KeyExists");
-client.KeyExists({ns: "test", set: "set", key: "key"}, function(err, result) {
-  if (err)
-    throw "error KeyExists: " + err;
-  if (!result)
-    throw "error KeyExists: not found!";
-});
-
-console.log("client.KeyGet");
-client.KeyGet({ns: "test", set: "set", key: "key"}, [],
-  function(err, result) {
-    console.log("KeyGet-All", result);
-    if (err)
-      throw "error";
-});
-
-console.log("client.KeyGet");
-client.KeyGet({ns: "test", set: "set", key: "key"},
-  ["col2new", "col3new", "col4nonexists"],
-  function(err, result) {
-    console.log("KeyGet", result);
-    console.log(err);
-    if (err)
-      throw "error";
-});
-
-console.log('END TEST');
-*/
+  async.series([
+    // Put-ok
+    function(cb) {
+      client.KeyPut({ns: "test", set: "set", key: "__TEST_KEY_OK__"}, 
+        {col1new: "value1-new", col2new: "value2-new", col3new: 3},
+        function(err) {
+          assert.equal(err, undefined, "failed put-ok");
+          cb(err);
+      });
+    },
+    // Exists-ok
+    function(cb) {
+      client.KeyExists({ns: "test", set: "set", key: "__TEST_KEY_OK__"},
+        function(err, result) {
+          assert.equal(err, undefined, "failed exists-ok");
+          assert.equal(result, true);
+          cb(err);
+      });
+    },
+    // Remove-ok
+    function(cb) {
+      client.KeyRemove({ns: "test", set: "set", key: "__TEST_KEY_OK__"},
+        function(err) {
+          assert.equal(err, undefined, "failed remove-ok");
+          cb(err);
+      });
+    },
+    // Exists-ok-false
+    function(cb) {
+      client.KeyExists({ns: "test", set: "set", key: "__TEST_KEY_OK__"},
+        function(err, result) {
+          assert.equal(err, undefined, "failed exists-ok");
+          assert.equal(result, false);
+          cb(err);
+      });
+    },
+  ], function(err, results) {
+    assert.equal(err, undefined);
+  })
+})
