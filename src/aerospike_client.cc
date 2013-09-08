@@ -336,6 +336,7 @@ Handle<Value> Client::Connect(const Arguments& args)
                   Local<Value> argv[argc];
                   if (baton->status == AEROSPIKE_OK)
                   {
+                    baton->client->connected = true;
                     argv[0] = Local<Value>::New(Undefined());
                   }
                   else
