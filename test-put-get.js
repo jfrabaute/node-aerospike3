@@ -1,13 +1,33 @@
-var aerospike = require('./build/Release/aerospike');
+var assert = require('assert'),
+    async = require('async');
+
+try {
+  var aerospike = require('./build/Debug/aerospike');
+} catch (error) {
+  var aerospike = require('./build/Release/aerospike');
+}
+    
 
 var client = new aerospike.Client();
 
-console.log("client.Connet");
-client.Connect({addr: "localhost", port: 3000}, function(err) {
-  if (err)
-    throw "error";
-});
+async.series([
+  function(cb) {
+    client.Connect({}, function(err) {
+      assert.equal(err, undefined, "failed connect");
+      cb(err);
+    })
+  },
+  function(cb) {
+    client.KeyPut({ns: "test", set: "set", key: "key"}, 
+      {col1new: "value1-new", col2new: "value2-new", col3new: 3},
+      function(err, result) {
+        assert.equal(err, undefined, "failed put");
+        cb(err);
+    });
+  }
+]);
 
+/*
 console.log("client.KeyExists");
 client.KeyExists({ns: "ns", set: "set", key: "key"}, function(err, result) {
   // The namespace does not exists
@@ -27,13 +47,6 @@ client.KeyExists({ns: "test", set: "set", key: "key"}, function(err, result) {
     throw "error KeyExists: found!";
 });
 
-console.log("client.KeyPut");
-client.KeyPut({ns: "test", set: "set", key: "key"}, 
-  {col1new: "value1-new", col2new: "value2-new", col3new: 3},
-  function(err, result) {
-  if (err)
-    throw "error KeyPut: " + err;
-});
 
 console.log("client.KeyExists");
 client.KeyExists({ns: "test", set: "set", key: "key"}, function(err, result) {
@@ -62,3 +75,4 @@ client.KeyGet({ns: "test", set: "set", key: "key"},
 });
 
 console.log('END TEST');
+*/

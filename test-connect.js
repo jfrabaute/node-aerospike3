@@ -1,5 +1,10 @@
-var assert = require('assert'),
-    aerospike = require('./build/Release/aerospike');
+var assert = require('assert');
+
+try {
+  var aerospike = require('./build/Debug/aerospike');
+} catch (error) {
+  var aerospike = require('./build/Release/aerospike');
+}
 
 var client1 = new aerospike.Client();
 var client2 = new aerospike.Client();

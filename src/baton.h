@@ -17,6 +17,11 @@ struct BatonKeyExists: public BatonBase {
   bool result;
 };
 
+struct BatonKeyPut: public BatonBase {
+  as_key key;
+  as_record record;
+};
+
 }
 
 #endif // SRC_BATON_H
