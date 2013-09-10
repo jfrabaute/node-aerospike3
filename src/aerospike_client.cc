@@ -632,7 +632,7 @@ Handle<Value> Client::KeyGet(const Arguments& args)
     // Return only requested bins
     baton->bins_size = array->Length() + 1;
     baton->bins = (char**)malloc(baton->bins_size);
-    memset(baton->bins, 0, baton->bins_size);
+    memset(baton->bins, '\0', sizeof(char*)*baton->bins_size);
     for (uint32_t i = 0 ; i < baton->bins_size-1 ; ++i)
     {
       String::AsciiValue bin_str(array->Get(i)->ToString());

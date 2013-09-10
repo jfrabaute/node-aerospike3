@@ -66,6 +66,16 @@ client.Connect({}, function(err) {
           cb(err);
       });
     },
+    // Get-ok
+    function(cb) {
+      client.KeyGet({ns: "test", set: "set", key: "__TEST_KEY_OK__"},
+        ["col1new", "col3new"],
+        function(err, result) {
+          assert.equal(err, undefined, "failed get-ok");
+          assert.deepEqual(result, {col1new: "value1-new", col3new: 3});
+          cb(err);
+      });
+    },
     // Remove-ok
     function(cb) {
       client.KeyRemove({ns: "test", set: "set", key: "__TEST_KEY_OK__"},
