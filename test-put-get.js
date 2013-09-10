@@ -62,7 +62,7 @@ client.Connect({}, function(err) {
         [],
         function(err, result) {
           assert.equal(err, undefined, "failed get-ok");
-          assert.equal(result, {col1new: "value1-new", col2new: "value2-new", col3new: 3});
+          assert.deepEqual(result, {col1new: "value1-new", col2new: "value2-new", col3new: 3});
           cb(err);
       });
     },

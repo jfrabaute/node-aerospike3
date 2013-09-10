@@ -696,7 +696,7 @@ Handle<Value> Client::KeyGet(const Arguments& args)
                           Local<Object>::Cast(argv[1])->Set(String::NewSymbol(as_bin_get_name(bin)), Number::New(as_record_get_int64 (baton->record, bin->name, 0)));
                           break;
                         case AS_STRING:
-                          Local<Object>::Cast(argv[1])->Set(String::NewSymbol(as_bin_get_name(bin)), String::New(as_val_tostring(value)));
+                          Local<Object>::Cast(argv[1])->Set(String::NewSymbol(as_bin_get_name(bin)), String::New(as_string_get(as_string_fromval(value))));
                           break;
                         case AS_UNDEF:
                           Local<Object>::Cast(argv[1])->Set(String::NewSymbol(as_bin_get_name(bin)), Undefined());
