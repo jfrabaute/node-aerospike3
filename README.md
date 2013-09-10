@@ -80,7 +80,7 @@ client.KeyGet({ns: "test", set: "set", key: "__TEST_KEY_OK__"},
     ["col1new", "col3new"],
     function(err, result) {
         assert.equal(err, undefined, "failed get-ok");
-        assert.deepEqual(result, {col1new: "value1-new", col2new: "value2-new", col3new: 3});
+        assert.deepEqual(result, {col1new: "value1-new", col3new: 3});
 });
 ```
 
