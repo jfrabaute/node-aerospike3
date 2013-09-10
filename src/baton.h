@@ -20,8 +20,7 @@ struct BatonKeyExists: public BatonKey {
   bool result;
 };
 
-struct BatonKeyPut: public BatonBase {
-  as_key key;
+struct BatonKeyPut: public BatonKey {
   as_record record;
 };
 
