@@ -608,110 +608,127 @@ Handle<Value> Client::KeyGet(const Arguments& args)
     return scope.Close(Undefined());
   }
 
-  as_key key;
-  if (!getKeyFromArg(args[0], key))
+  BatonKeyGet *baton = new BatonKeyGet();
+
+  if (!getKeyFromArg(args[0], baton->key))
+  {
+    delete baton;
     return scope.Close(Undefined());
+  }
+
+  baton->request.data = baton;
+  baton->callback = Persistent<Function>::New(Local<Function>::Cast(args[2]));
+  baton->client = client;
 
   Handle<Array> array = Handle<Array>::Cast(args[1]);
-  as_record * rec = NULL;
   if (array->Length() == 0)
   {
     // Return all the bins
-    as_status status = aerospike_key_get(&client->as, &client->err, NULL, &key, &rec);
-    if (status != AEROSPIKE_OK)
-    {
-      as_record_destroy(rec);
-      Local<Function> cb = Local<Function>::Cast(args[2]);
-      const unsigned argc = 1;
-      Local<Value> argv[argc] = { Local<Value>::New(String::Concat(String::New("Error: "), Int32::New(status)->ToString())) };
-      cb->Call(Context::GetCurrent()->Global(), argc, argv);
-      return scope.Close(Undefined());
-    }
+    baton->bins = NULL;
+    baton->bins_size = 0;
   }
   else
   {
-    char** bins = (char**)alloca(array->Length() + 1);
-    bins[array->Length()] = NULL;
-    for (uint32_t i = 0 ; i < array->Length() ; ++i)
+    // Return only requested bins
+    baton->bins_size = array->Length() + 1;
+    baton->bins = (char**)malloc(baton->bins_size);
+    memset(baton->bins, 0, baton->bins_size);
+    for (uint32_t i = 0 ; i < baton->bins_size-1 ; ++i)
     {
       String::AsciiValue bin_str(array->Get(i)->ToString());
       if (bin_str.length() == 0)
       {
         ThrowException(Exception::TypeError(String::New("\"record\" property could not be converted into a valid ascii string")));
+        delete baton;
         return scope.Close(Undefined());
       }
       else if (bin_str.length() > AS_BIN_NAME_MAX_LEN)
       {
         ThrowException(Exception::TypeError(String::New("one record property is too big (15 characters max)")));
+        delete baton;
         return scope.Close(Undefined());
       }
-      bins[i] = strdupa(*bin_str);
-    }
-    
-    // Return only requested bins
-    as_status status = aerospike_key_select(&client->as, &client->err, NULL, &key, const_cast<const char**>(bins), &rec);
-    if (status != AEROSPIKE_OK)
-    {
-      as_record_destroy(rec);
-      Local<Function> cb = Local<Function>::Cast(args[2]);
-      const unsigned argc = 1;
-      Local<Value> argv[argc] = { Local<Value>::New(String::Concat(String::New("Error: "), Int32::New(status)->ToString())) };
-      cb->Call(Context::GetCurrent()->Global(), argc, argv);
-      return scope.Close(Undefined());
+      baton->bins[i] = strdup(*bin_str);
     }
   }
 
-  // Transform the ac_record into a js object
-  Local<Object> obj = Object::New();
+  uv_queue_work(uv_default_loop(), &baton->request,
+                /*AsyncWork*/
+                [] (uv_work_t* req) {
+                  BatonKeyGet* baton = static_cast<BatonKeyGet*>(req->data);
+                  if (baton->bins == NULL)
+                  {
+                    // Return all the bins
+                    baton->status = aerospike_key_get(&baton->client->as, &baton->error, NULL, &baton->key, &baton->record);
+                  }
+                  else
+                  {
+                    // Return only requested bins
+                    baton->status = aerospike_key_select(&baton->client->as, &baton->error, NULL, &baton->key, const_cast<const char**>(baton->bins), &baton->record);
+                  }
+                },
+                /*AsyncAfter*/
+                [] (uv_work_s* req, int status) {
+                  HandleScope scope;
+                  BatonKeyGet* baton = static_cast<BatonKeyGet*>(req->data);
 
-  as_record_iterator it;
-  as_record_iterator_init(&it, rec);
+                  const unsigned argc = 2;
+                  Local<Value> argv[argc];
+                  if (baton->status == AEROSPIKE_OK)
+                  {
+                    argv[0] = Local<Value>::New(Undefined());
+                    // Transform the ac_record into a js object
+                    argv[1] = Object::New();
 
-  while ( as_record_iterator_has_next(&it) )
-  {
-    as_bin * bin = as_record_iterator_next(&it);
-    as_val * value = (as_val *) as_bin_get_value(bin);
-    switch ( as_val_type(value) ) {
-      case AS_NIL:
-        obj->Set(String::NewSymbol(as_bin_get_name(bin)), Null());
-        break;
-      case AS_INTEGER:
-        obj->Set(String::NewSymbol(as_bin_get_name(bin)), Number::New(as_record_get_int64 (rec, bin->name, 0)));
-        break;
-      case AS_STRING:
-        obj->Set(String::NewSymbol(as_bin_get_name(bin)), String::New(as_val_tostring(value)));
-        break;
-      case AS_UNDEF:
-        obj->Set(String::NewSymbol(as_bin_get_name(bin)), Undefined());
-        break;
-      case AS_BYTES:
-      case AS_LIST:
-      case AS_MAP:
-      case AS_REC:
-      default:
-        Local<Function> cb = Local<Function>::Cast(args[2]);
-        const unsigned argc = 2;
-        Local<Value> argv[argc] = {
-          Local<Value>::New(String::New("Type not supported")),
-          obj
-        };
-        cb->Call(Context::GetCurrent()->Global(), argc, argv);
+                    as_record_iterator it;
+                    as_record_iterator_init(&it, baton->record);
 
-        return scope.Close(Undefined());
-    }
-    
-  }
-  as_record_iterator_destroy(&it);
+                    bool error = false;
+                    while ( as_record_iterator_has_next(&it) )
+                    {
+                      as_bin * bin = as_record_iterator_next(&it);
+                      as_val * value = (as_val *) as_bin_get_value(bin);
+                      switch ( as_val_type(value) ) {
+                        case AS_NIL:
+                          Local<Object>::Cast(argv[1])->Set(String::NewSymbol(as_bin_get_name(bin)), Null());
+                          break;
+                        case AS_INTEGER:
+                          Local<Object>::Cast(argv[1])->Set(String::NewSymbol(as_bin_get_name(bin)), Number::New(as_record_get_int64 (baton->record, bin->name, 0)));
+                          break;
+                        case AS_STRING:
+                          Local<Object>::Cast(argv[1])->Set(String::NewSymbol(as_bin_get_name(bin)), String::New(as_val_tostring(value)));
+                          break;
+                        case AS_UNDEF:
+                          Local<Object>::Cast(argv[1])->Set(String::NewSymbol(as_bin_get_name(bin)), Undefined());
+                          break;
+                        case AS_BYTES:
+                        case AS_LIST:
+                        case AS_MAP:
+                        case AS_REC:
+                        default:
+                          argv[0] = Local<Value>::New(String::New("Type not supported"));
+                          argv[1] = Local<Value>::New(Undefined());
+                          error = true;
+                          break;
+                      }
+                      if (error)
+                        break;
+                    }
+                    as_record_iterator_destroy(&it);
 
-  as_record_destroy(rec);
-
-  Local<Function> cb = Local<Function>::Cast(args[2]);
-  const unsigned argc = 2;
-  Local<Value> argv[argc] = {
-    Local<Value>::New(Undefined()),
-    obj
-  };
-  cb->Call(Context::GetCurrent()->Global(), argc, argv);
+                    as_record_destroy(baton->record);
+                  }
+                  else
+                  {
+                    // TODO: Create an error object
+                    argv[0] = Integer::New(baton->status);
+                    argv[1] = Local<Value>::New(Undefined());
+                  }
+                  baton->callback->Call(Context::GetCurrent()->Global(), argc, argv);
+                  baton->callback.Dispose();
+                  delete baton;
+                }
+  );
 
   return scope.Close(Undefined());
 }
