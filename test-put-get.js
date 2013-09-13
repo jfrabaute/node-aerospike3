@@ -17,8 +17,8 @@ client.Connect({}, function(err) {
   async.parallel([
     // Put-error
     function(cb) {
-      client.KeyPut({ns: "ns", set: "set", key: "key"}, 
-        {col1new: "value1-new", col2new: "value2-new", col3new: 3},
+      client.KeyPut({key: {ns: "ns", set: "set", key: "key"},
+        record: {col1new: "value1-new", col2new: "value2-new", col3new: 3}},
         function(err, result) {
           assert.equal(err, 501, "error: Put-error");
           cb(err == 501 ? undefined : err);
@@ -40,8 +40,8 @@ client.Connect({}, function(err) {
   async.series([
     // Put-ok
     function(cb) {
-      client.KeyPut({ns: "test", set: "set", key: "__TEST_KEY_OK__"}, 
-        {col1new: "value1-new", col2new: "value2-new", col3new: 3},
+      client.KeyPut({key: {ns: "test", set: "set", key: "__TEST_KEY_OK__"},
+        record: {col1new: "value1-new", col2new: "value2-new", col3new: 3}},
         function(err) {
           assert.equal(err, undefined, "failed put-ok");
           cb(err);
@@ -58,8 +58,7 @@ client.Connect({}, function(err) {
     },
     // Get-ok
     function(cb) {
-      client.KeyGet({ns: "test", set: "set", key: "__TEST_KEY_OK__"},
-        [],
+      client.KeyGet({key: {ns: "test", set: "set", key: "__TEST_KEY_OK__"}},
         function(err, result) {
           assert.equal(err, undefined, "failed get-ok");
           assert.deepEqual(result, {col1new: "value1-new", col2new: "value2-new", col3new: 3});
@@ -68,8 +67,8 @@ client.Connect({}, function(err) {
     },
     // Get-ok
     function(cb) {
-      client.KeyGet({ns: "test", set: "set", key: "__TEST_KEY_OK__"},
-        ["col1new", "col3new"],
+      client.KeyGet({key: {ns: "test", set: "set", key: "__TEST_KEY_OK__"},
+        bins: ["col1new", "col3new"]},
         function(err, result) {
           assert.equal(err, undefined, "failed get-ok");
           assert.deepEqual(result, {col1new: "value1-new", col3new: 3});

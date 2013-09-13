@@ -62,14 +62,8 @@ namespace {
     return true;
   }
 
-  bool getKeyFromArg(const Handle<Value> &arg, as_key &key)
+  bool getKeyFromObject(const Handle<Object> &arg, as_key &key)
   {
-    if (!arg->IsObject())
-    {
-      ThrowException(Exception::TypeError(String::New("Expected object for key argument.")));
-      return false;
-    }
-
     Handle<Object> obj = Handle<Object>::Cast(arg);
 
     Handle<Value> ns = obj->Get(String::New("ns"));
@@ -124,16 +118,38 @@ namespace {
     return true;
   }
 
-  bool getPutRecordFromArg(const Handle<Value> &arg, as_record &record)
+  bool getKeyFromKeyBinsArg(const Handle<Value> &arg, as_key &key)
   {
     if (!arg->IsObject())
     {
-      ThrowException(Exception::TypeError(String::New("Expected object for record argument.")));
+      ThrowException(Exception::TypeError(String::New("Expected object for argument.")));
       return false;
     }
 
-    Handle<Object> rec = Handle<Object>::Cast(arg);
+    Handle<Object> obj = Handle<Object>::Cast(arg);
+    Handle<Value> keyArg = obj->Get(String::New("key"));
+    if (!keyArg->IsObject())
+    {
+      ThrowException(Exception::TypeError(String::New("Expected object for key argument.")));
+      return false;
+    }
 
+    return getKeyFromObject(Handle<Object>::Cast(keyArg), key);
+  }
+
+  bool getKeyFromArg(const Handle<Value> &arg, as_key &key)
+  {
+    if (!arg->IsObject())
+    {
+      ThrowException(Exception::TypeError(String::New("Expected object type for key argument.")));
+      return false;
+    }
+
+    return getKeyFromObject(Handle<Object>::Cast(arg), key);
+  }
+
+  bool getRecordFromObject(const Handle<Object> &rec, as_record &record)
+  {
     Local<Array> properties = rec->GetOwnPropertyNames();
     if (properties->Length() == 0)
     {
@@ -188,6 +204,30 @@ namespace {
     }
 
     return true;
+  }
+
+  bool getRecordFromKeyRecordObject(const Handle<Object> &obj, as_record &record)
+  {
+    Handle<Value> rec = obj->Get(String::New("record"));
+
+    if (!rec->IsObject())
+    {
+      ThrowException(Exception::TypeError(String::New("Expected object type for \"record\" property.")));
+      return false;
+    }
+
+    return getRecordFromObject(Handle<Object>::Cast(rec), record);
+  }
+
+  bool getRecordFromKeyRecordArg(const Handle<Value> &arg, as_record &record)
+  {
+    if (!arg->IsObject())
+    {
+      ThrowException(Exception::TypeError(String::New("Expected object type for argument.")));
+      return false;
+    }
+
+    return getRecordFromKeyRecordObject(Handle<Object>::Cast(arg), record);
   }
 
 } // unamed namespace
@@ -524,26 +564,21 @@ Handle<Value> Client::KeyPut(const Arguments& args)
     ThrowException(Exception::Error(String::New("Client is not connected.")));
     return scope.Close(Undefined());
   }
-  if (args.Length() < 3)
+  if (!args[1]->IsFunction())
   {
-    ThrowException(Exception::TypeError(String::New("Missing arguments")));
-    return scope.Close(Undefined());
-  }
-  if (!args[2]->IsFunction())
-  {
-    ThrowException(Exception::TypeError(String::New("Third argument is not a callback function")));
+    ThrowException(Exception::TypeError(String::New("Second argument is not a callback function")));
     return scope.Close(Undefined());
   }
 
   BatonKeyPut *baton = new BatonKeyPut();
 
-  if (!getKeyFromArg(args[0], baton->key))
+  if (!getKeyFromKeyBinsArg(args[0], baton->key))
   {
     delete baton;
     return scope.Close(Undefined());
   }
 
-  if (!getPutRecordFromArg(args[1], baton->record))
+  if (!getRecordFromKeyRecordArg(args[0], baton->record))
   {
     delete baton;
     return scope.Close(Undefined());
@@ -592,64 +627,78 @@ Handle<Value> Client::KeyGet(const Arguments& args)
 
   Client *client = ObjectWrap::Unwrap<Client>(args.Holder());
 
-  if (args.Length() < 3)
+  if (args.Length() < 2)
   {
     ThrowException(Exception::TypeError(String::New("Missing arguments")));
     return scope.Close(Undefined());
   }
-  if (!args[1]->IsArray())
+  if (!args[1]->IsFunction())
   {
-    ThrowException(Exception::TypeError(String::New("Second argument is not an array")));
-    return scope.Close(Undefined());
-  }
-  if (!args[2]->IsFunction())
-  {
-    ThrowException(Exception::TypeError(String::New("Third argument is not a function")));
+    ThrowException(Exception::TypeError(String::New("Second argument is not a function")));
     return scope.Close(Undefined());
   }
 
   BatonKeyGet *baton = new BatonKeyGet();
 
-  if (!getKeyFromArg(args[0], baton->key))
+  if (!getKeyFromKeyBinsArg(args[0], baton->key))
   {
     delete baton;
     return scope.Close(Undefined());
   }
 
   baton->request.data = baton;
-  baton->callback = Persistent<Function>::New(Local<Function>::Cast(args[2]));
+  baton->callback = Persistent<Function>::New(Local<Function>::Cast(args[1]));
   baton->client = client;
 
-  Handle<Array> array = Handle<Array>::Cast(args[1]);
-  if (array->Length() == 0)
+  Handle<Object> obj = Handle<Object>::Cast(args[0]);
+
+  Handle<Value> bins = obj->Get(String::New("record"));
+
+  if (bins->IsUndefined())
   {
     // Return all the bins
     baton->bins = NULL;
     baton->bins_size = 0;
   }
+  else if (bins->IsArray())
+  {
+    Handle<Array> array = Handle<Array>::Cast(bins);
+
+    if (array->Length() == 0)
+    {
+      // Return all the bins
+      baton->bins = NULL;
+      baton->bins_size = 0;
+    }
+    else
+    {
+      // Return only requested bins
+      baton->bins_size = array->Length() + 1;
+      baton->bins = (char**)malloc(baton->bins_size);
+      memset(baton->bins, '\0', sizeof(char*)*baton->bins_size);
+      for (uint32_t i = 0 ; i < baton->bins_size-1 ; ++i)
+      {
+        String::AsciiValue bin_str(array->Get(i)->ToString());
+        if (bin_str.length() == 0)
+        {
+          ThrowException(Exception::TypeError(String::New("\"record\" property could not be converted into a valid ascii string")));
+          delete baton;
+          return scope.Close(Undefined());
+        }
+        else if (bin_str.length() > AS_BIN_NAME_MAX_LEN)
+        {
+          ThrowException(Exception::TypeError(String::New("one record property is too big (15 characters max)")));
+          delete baton;
+          return scope.Close(Undefined());
+        }
+        baton->bins[i] = strdup(*bin_str);
+      }
+    }
+  }
   else
   {
-    // Return only requested bins
-    baton->bins_size = array->Length() + 1;
-    baton->bins = (char**)malloc(baton->bins_size);
-    memset(baton->bins, '\0', sizeof(char*)*baton->bins_size);
-    for (uint32_t i = 0 ; i < baton->bins_size-1 ; ++i)
-    {
-      String::AsciiValue bin_str(array->Get(i)->ToString());
-      if (bin_str.length() == 0)
-      {
-        ThrowException(Exception::TypeError(String::New("\"record\" property could not be converted into a valid ascii string")));
-        delete baton;
-        return scope.Close(Undefined());
-      }
-      else if (bin_str.length() > AS_BIN_NAME_MAX_LEN)
-      {
-        ThrowException(Exception::TypeError(String::New("one record property is too big (15 characters max)")));
-        delete baton;
-        return scope.Close(Undefined());
-      }
-      baton->bins[i] = strdup(*bin_str);
-    }
+    ThrowException(Exception::TypeError(String::New("bins property should be an array.")));
+    return scope.Close(Undefined());
   }
 
   uv_queue_work(uv_default_loop(), &baton->request,
