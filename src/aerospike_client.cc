@@ -354,9 +354,6 @@ Handle<Value> Client::Connect(const Arguments& args)
 
   // Run connect asynchronously
   BatonNull* baton = new BatonNull(client, cb);
-  baton->request.data = baton;
-  baton->callback = Persistent<Function>::New(cb);
-  baton->client = client;
 
   uv_queue_work(uv_default_loop(), &baton->request,
                 /*AsyncWork*/
@@ -500,8 +497,8 @@ Handle<Value> Client::KeyExists(const Arguments& args)
     ThrowException(Exception::TypeError(String::New("Second argument is not a function")));
     return scope.Close(Undefined());
   }
-  Local<Function> cb = Local<Function>::Cast(args[1]);
 
+  Local<Function> cb(Local<Function>::Cast(args[1]));
   BatonKeyExists *baton = new BatonKeyExists(client, cb);
 
   if (!getKeyFromArg(args[0], baton->key))
