@@ -9,6 +9,7 @@ extern "C" {
 
 #include "aerospike.h"
 #include "aerospike_client.h"
+#include "aerospike_error.h"
 #include "baton.h"
 
 using namespace v8;
@@ -232,11 +233,12 @@ namespace {
 
 } // unamed namespace
 
+
+bool Client::connected = false;
+bool Client::connecting = false;
+
 Client::Client()
-  : initialized(false)
-  , connected(false)
 {
-  as_error_init(&err);
 }
 
 Client::~Client()
@@ -273,6 +275,19 @@ void Client::Init(Handle<Object> target)
 
 Handle<Value> Client::New(const Arguments& args)
 {
+  MY_NODE_ISOLATE_DECL
+  MY_HANDLESCOPE
+
+  if (!args.IsConstructCall())
+  {
+    return ThrowException(Exception::TypeError(String::New("Use the new operator to create new Client objects")));
+  }
+
+  if (Client::connected || Client::connecting)
+  {
+    return ThrowException(Exception::TypeError(String::New("Aerospike C Client limitation: Applications that use this client can only connect to a single cluster at a time. This will be fixed in a future release.")));
+  }
+
   Client* obj = new Client();
   obj->Wrap(args.Holder());
 
@@ -284,12 +299,17 @@ Handle<Value> Client::Connect(const Arguments& args)
   MY_NODE_ISOLATE_DECL
   MY_HANDLESCOPE
 
-
   Client *client = ObjectWrap::Unwrap<Client>(args.Holder());
 
   if (client->connected)
   {
     ThrowException(Exception::TypeError(String::New("Client already connected.")));
+    return scope.Close(Undefined());
+  }
+
+  if (client->connecting)
+  {
+    ThrowException(Exception::TypeError(String::New("Client already connecting.")));
     return scope.Close(Undefined());
   }
 
@@ -355,32 +375,37 @@ Handle<Value> Client::Connect(const Arguments& args)
   // Run connect asynchronously
   BatonNull* baton = new BatonNull(client, cb);
 
+  Client::connecting = true;
+
   uv_queue_work(uv_default_loop(), &baton->request,
                 /*AsyncWork*/
                 [] (uv_work_t* req) {
                   BatonNull* baton = static_cast<BatonNull*>(req->data);
                   aerospike_init(&baton->client->as, &baton->client->config);
-                  baton->status = aerospike_connect(&baton->client->as, &baton->error);
+                  if (aerospike_connect(&baton->client->as, baton->error.get()) != AEROSPIKE_OK)
+                    aerospike_destroy(&baton->client->as);
                 },
                 /*AsyncAfter*/
                 [] (uv_work_s* req, int status) {
-                  HandleScope scope;
+                  MY_NODE_ISOLATE_DECL
+                  MY_HANDLESCOPE
+
+                  Client::connecting = false;
+
                   BatonNull* baton = static_cast<BatonNull*>(req->data);
 
-                  baton->client->initialized = true;
-
                   const unsigned argc = 1;
-                  Local<Value> argv[argc];
-                  if (baton->status == AEROSPIKE_OK)
+                  Handle<Value> argv[argc];
+                  if (baton->error->code == AEROSPIKE_OK)
                   {
                     baton->client->connected = true;
                     argv[0] = Local<Value>::New(Undefined());
                   }
                   else
                   {
-                    // TODO: Create an error object
-                    argv[0] = Integer::New(baton->status);
+                    argv[0] = ERRORNEWINSTANCE(baton->error);
                   }
+
                   baton->callback->Call(Context::GetCurrent()->Global(), argc, argv);
                   baton->callback.Dispose();
                   delete baton;
@@ -425,6 +450,12 @@ Handle<Value> Client::Close(const Arguments& args)
 
   Client *client = ObjectWrap::Unwrap<Client>(args.Holder());
 
+  if (!client->connected)
+  {
+    ThrowException(Exception::TypeError(String::New("Client not connected")));
+    return scope.Close(Undefined());
+  }
+
   // Run close asynchronously
   BatonNull* baton = new BatonNull(client, cb);
 
@@ -432,23 +463,24 @@ Handle<Value> Client::Close(const Arguments& args)
                 /*AsyncWork*/
                 [] (uv_work_t* req) {
                   BatonNull* baton = static_cast<BatonNull*>(req->data);
-                  baton->status = baton->client->close(baton->error);
+                  baton->client->close(*baton->error.get());
                 },
                 /*AsyncAfter*/
                 [] (uv_work_s* req, int status) {
-                  HandleScope scope;
+                  MY_NODE_ISOLATE_DECL
+                  MY_HANDLESCOPE
+
                   BatonNull* baton = static_cast<BatonNull*>(req->data);
 
                   const unsigned argc = 1;
                   Local<Value> argv[argc];
-                  if (baton->status == AEROSPIKE_OK)
+                  if (baton->error->code == AEROSPIKE_OK)
                   {
                     argv[0] = Local<Value>::New(Undefined());
                   }
                   else
                   {
-                    // TODO
-                    argv[0] = Integer::New(baton->status);
+                    argv[0] = ERRORNEWINSTANCE(baton->error);
                   }
                   baton->callback->Call(Context::GetCurrent()->Global(), argc, argv);
                   delete baton;
@@ -465,13 +497,10 @@ as_status Client::close(as_error &err)
   if (connected)
   {
     result = aerospike_close(&as, &err);
+    aerospike_destroy(&as);
     connected = false;
   }
-  if (initialized)
-  {
-    aerospike_destroy(&as);
-    initialized = false;
-  }
+
   return result;
 }
 
@@ -511,24 +540,25 @@ Handle<Value> Client::KeyExists(const Arguments& args)
                 /*AsyncWork*/
                 [] (uv_work_t* req) {
                   BatonKeyExists* baton = static_cast<BatonKeyExists*>(req->data);
-                  baton->status = aerospike_key_exists(&baton->client->as, &baton->client->err, NULL, &baton->key, &baton->result);
+                  aerospike_key_exists(&baton->client->as, baton->error.get(), NULL, &baton->key, &baton->result);
                 },
                 /*AsyncAfter*/
                 [] (uv_work_s* req, int status) {
-                  HandleScope scope;
+                  MY_NODE_ISOLATE_DECL
+                  MY_HANDLESCOPE
+
                   BatonKeyExists* baton = static_cast<BatonKeyExists*>(req->data);
 
                   const unsigned argc = 2;
                   Local<Value> argv[argc];
-                  if (baton->status == AEROSPIKE_OK)
+                  if (baton->error->code == AEROSPIKE_OK)
                   {
                     argv[0] = Local<Value>::New(Undefined());
                     argv[1] = Local<Value>::New(baton->result ? True() : False());
                   }
                   else
                   {
-                    // TODO: Create an error object
-                    argv[0] = Integer::New(baton->status);
+                    argv[0] = ERRORNEWINSTANCE(baton->error);
                     argv[1] = Local<Value>::New(Undefined());
                   }
                   baton->callback->Call(Context::GetCurrent()->Global(), argc, argv);
@@ -576,24 +606,25 @@ Handle<Value> Client::KeyPut(const Arguments& args)
                 /*AsyncWork*/
                 [] (uv_work_t* req) {
                   BatonKeyPut* baton = static_cast<BatonKeyPut*>(req->data);
-                  baton->status = aerospike_key_put(&baton->client->as, &baton->client->err, NULL, &baton->key, &baton->record);
+                  aerospike_key_put(&baton->client->as, baton->error.get(), NULL, &baton->key, &baton->record);
                   as_record_destroy(&baton->record);
                 },
                 /*AsyncAfter*/
                 [] (uv_work_s* req, int status) {
-                  HandleScope scope;
+                  MY_NODE_ISOLATE_DECL
+                  MY_HANDLESCOPE
+
                   BatonKeyPut* baton = static_cast<BatonKeyPut*>(req->data);
 
                   const unsigned argc = 1;
                   Local<Value> argv[argc];
-                  if (baton->status == AEROSPIKE_OK)
+                  if (baton->error->code == AEROSPIKE_OK)
                   {
                     argv[0] = Local<Value>::New(Undefined());
                   }
                   else
                   {
-                    // TODO: Create an error object
-                    argv[0] = Integer::New(baton->status);
+                    argv[0] = ERRORNEWINSTANCE(baton->error);
                   }
                   baton->callback->Call(Context::GetCurrent()->Global(), argc, argv);
                   delete baton;
@@ -688,22 +719,24 @@ Handle<Value> Client::KeyGet(const Arguments& args)
                   if (baton->bins == NULL)
                   {
                     // Return all the bins
-                    baton->status = aerospike_key_get(&baton->client->as, &baton->error, NULL, &baton->key, &baton->record);
+                    aerospike_key_get(&baton->client->as, baton->error.get(), NULL, &baton->key, &baton->record);
                   }
                   else
                   {
                     // Return only requested bins
-                    baton->status = aerospike_key_select(&baton->client->as, &baton->error, NULL, &baton->key, const_cast<const char**>(baton->bins), &baton->record);
+                    aerospike_key_select(&baton->client->as, baton->error.get(), NULL, &baton->key, const_cast<const char**>(baton->bins), &baton->record);
                   }
                 },
                 /*AsyncAfter*/
                 [] (uv_work_s* req, int status) {
-                  HandleScope scope;
+                  MY_NODE_ISOLATE_DECL
+                  MY_HANDLESCOPE
+
                   BatonKeyGet* baton = static_cast<BatonKeyGet*>(req->data);
 
                   const unsigned argc = 2;
                   Local<Value> argv[argc];
-                  if (baton->status == AEROSPIKE_OK)
+                  if (baton->error->code == AEROSPIKE_OK)
                   {
                     argv[0] = Local<Value>::New(Undefined());
                     // Transform the ac_record into a js object
@@ -749,8 +782,7 @@ Handle<Value> Client::KeyGet(const Arguments& args)
                   }
                   else
                   {
-                    // TODO: Create an error object
-                    argv[0] = Integer::New(baton->status);
+                    argv[0] = ERRORNEWINSTANCE(baton->error);
                     argv[1] = Local<Value>::New(Undefined());
                   }
                   baton->callback->Call(Context::GetCurrent()->Global(), argc, argv);
@@ -797,23 +829,24 @@ Handle<Value> Client::KeyRemove(const Arguments& args)
                 /*AsyncWork*/
                 [] (uv_work_t* req) {
                   BatonKey* baton = static_cast<BatonKey*>(req->data);
-                  baton->status = aerospike_key_remove(&baton->client->as, &baton->client->err, NULL, &baton->key);
+                  aerospike_key_remove(&baton->client->as, baton->error.get(), NULL, &baton->key);
                 },
                 /*AsyncAfter*/
                 [] (uv_work_s* req, int status) {
-                  HandleScope scope;
+                  MY_NODE_ISOLATE_DECL
+                  MY_HANDLESCOPE
+
                   BatonKey* baton = static_cast<BatonKey*>(req->data);
 
                   const unsigned argc = 1;
                   Local<Value> argv[argc];
-                  if (baton->status == AEROSPIKE_OK)
+                  if (baton->error->code == AEROSPIKE_OK)
                   {
                     argv[0] = Local<Value>::New(Undefined());
                   }
                   else
                   {
-                    // TODO: Create an error object
-                    argv[0] = Integer::New(baton->status);
+                    argv[0] = ERRORNEWINSTANCE(baton->error);
                   }
                   baton->callback->Call(Context::GetCurrent()->Global(), argc, argv);
                   delete baton;

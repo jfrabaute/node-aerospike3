@@ -3,6 +3,8 @@
 
 namespace nodejs_aerospike {
 
+#define ERRORNEWINSTANCE(error) Error::NewInstance(std::move(error))
+
 template<class D>
 struct BatonBase: public D
 {
@@ -10,8 +12,10 @@ struct BatonBase: public D
   BatonBase(const BatonBase &) = delete;
   BatonBase(const BatonBase &&) = delete;
   BatonBase(Client *_client, Local<Function> &_cb)
+    : client(_client)
+    , error(new as_error)
   {
-    client = _client;
+    client->AddRef();
     if (!_cb.IsEmpty())
       callback = Persistent<Function>::New(_cb);
     request.data = this;
@@ -20,14 +24,14 @@ struct BatonBase: public D
   virtual ~BatonBase()
   {
     callback.Dispose();
+    client->Release();
   }
-public:
+
   uv_work_t request;
   v8::Persistent<Function> callback;
 
   Client *client;
-  as_status status; // AEROSPIKE_OK means no error
-  as_error  error;
+  std::unique_ptr<as_error> error;
 
 };
 

@@ -4,6 +4,7 @@
 extern "C" {
   #include <aerospike/aerospike.h>
 }
+
 namespace nodejs_aerospike {
 
 using namespace v8;
@@ -11,6 +12,9 @@ using namespace v8;
 class Client: public node::ObjectWrap {
 public:
   static void Init(Handle<Object> target);
+
+  void AddRef() { Ref(); }
+  void Release() { Unref(); }
 
 private:
   Client();
@@ -36,10 +40,10 @@ private:
 // Internal object properties
 private:
   as_config config;
-  as_error  err; // TODO: remove this property
   aerospike as;
-  bool      initialized;
-  bool      connected;
+  // This should not be static, but we allow only one client at a time right now
+  static bool connected;
+  static bool connecting;
 };
 
 } // namespace nodejs_aerospike

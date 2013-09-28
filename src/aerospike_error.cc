@@ -14,38 +14,86 @@ using namespace v8;
 
 namespace nodejs_aerospike {
 
-Error::Error()
-{
-}
-
-Error::~Error()
-{
-}
+Persistent<ObjectTemplate> Error::error_templ;
 
 void Error::Init(Handle<Object> target)
 {
   MY_NODE_ISOLATE_DECL
 
-  // Prepare constructor template
-  Local<FunctionTemplate> tpl = FunctionTemplate::New(MY_NODE_ISOLATE_PRE New);
-  tpl->SetClassName(String::NewSymbol("Error"));
-  tpl->InstanceTemplate()->SetInternalFieldCount(1);
-
-  // Get prototype
-  Handle<ObjectTemplate> proto = tpl->PrototypeTemplate();
-
-  // Add methods
-
-  Persistent<Function> constructor = Persistent<Function>::New(MY_NODE_ISOLATE_PRE tpl->GetFunction());
-  target->Set(String::NewSymbol("Error"), constructor);
+  error_templ = Persistent<ObjectTemplate>::New(ObjectTemplate::New());
+  error_templ->SetInternalFieldCount(1);
+  error_templ->SetAccessor(String::New("code"), GetCode);
+  error_templ->SetAccessor(String::New("message"), GetMessage);
+  error_templ->SetAccessor(String::New("func"), GetFunc);
+  error_templ->SetAccessor(String::New("file"), GetFile);
+  error_templ->SetAccessor(String::New("line"), GetLine);
 }
 
-Handle<Value> Error::New(const Arguments& args)
+Local<Object> Error::NewInstance(std::unique_ptr<as_error> e)
 {
-  Error* obj = new Error();
-  obj->Wrap(args.Holder());
+  MY_NODE_ISOLATE_DECL
+  MY_HANDLESCOPE
 
-  return args.Holder();
+  Error* error = new Error(std::move(e));
+  Persistent<Object> obj = Persistent<Object>::New(error_templ->NewInstance());
+  obj->SetInternalField(0, External::New(error));
+  obj.MakeWeak(error, FreeInstance);
+
+  return scope.Close(obj);
+}
+
+void Error::FreeInstance(Persistent<Value> object, void *param)
+{
+  Error* error = static_cast<Error*>(param);
+  delete error;
+
+  object.Dispose();
+  object.Clear();
+}
+
+Handle<Value> Error::GetCode(Local<String> property, const AccessorInfo &info)
+{
+  Local<Object> self = info.Holder();
+  Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+  void* ptr = wrap->Value();
+  int value = static_cast<Error*>(ptr)->error->code;
+  return Integer::New(value);
+}
+
+Handle<Value> Error::GetMessage(Local<String> property, const AccessorInfo &info)
+{
+  Local<Object> self = info.Holder();
+  Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+  void* ptr = wrap->Value();
+  char* value = static_cast<Error*>(ptr)->error->message;
+  return String::New(value);
+}
+
+Handle<Value> Error::GetFunc(Local<String> property, const AccessorInfo &info)
+{
+  Local<Object> self = info.Holder();
+  Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+  void* ptr = wrap->Value();
+  const char* value = static_cast<Error*>(ptr)->error->func;
+  return String::New(value);
+}
+
+Handle<Value> Error::GetFile(Local<String> property, const AccessorInfo &info)
+{
+  Local<Object> self = info.Holder();
+  Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+  void* ptr = wrap->Value();
+  const char* value = static_cast<Error*>(ptr)->error->file;
+  return String::New(value);
+}
+
+Handle<Value> Error::GetLine(Local<String> property, const AccessorInfo &info)
+{
+  Local<Object> self = info.Holder();
+  Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+  void* ptr = wrap->Value();
+  uint32_t value = static_cast<Error*>(ptr)->error->line;
+  return Integer::New(value);
 }
 
 } // namespace nodejs_aerospike
