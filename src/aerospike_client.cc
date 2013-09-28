@@ -353,7 +353,7 @@ Handle<Value> Client::Connect(const Arguments& args)
   }
 
   // Run connect asynchronously
-  BatonBase* baton = new BatonBase();
+  BatonNull* baton = new BatonNull(client, cb);
   baton->request.data = baton;
   baton->callback = Persistent<Function>::New(cb);
   baton->client = client;
@@ -361,14 +361,14 @@ Handle<Value> Client::Connect(const Arguments& args)
   uv_queue_work(uv_default_loop(), &baton->request,
                 /*AsyncWork*/
                 [] (uv_work_t* req) {
-                  BatonBase* baton = static_cast<BatonBase*>(req->data);
+                  BatonNull* baton = static_cast<BatonNull*>(req->data);
                   aerospike_init(&baton->client->as, &baton->client->config);
                   baton->status = aerospike_connect(&baton->client->as, &baton->error);
                 },
                 /*AsyncAfter*/
                 [] (uv_work_s* req, int status) {
                   HandleScope scope;
-                  BatonBase* baton = static_cast<BatonBase*>(req->data);
+                  BatonNull* baton = static_cast<BatonNull*>(req->data);
 
                   baton->client->initialized = true;
 
@@ -429,22 +429,18 @@ Handle<Value> Client::Close(const Arguments& args)
   Client *client = ObjectWrap::Unwrap<Client>(args.Holder());
 
   // Run close asynchronously
-  BatonBase* baton = new BatonBase();
-  baton->request.data = baton;
-  if (!cb.IsEmpty())
-    baton->callback = Persistent<Function>::New(cb);
-  baton->client = client;
+  BatonNull* baton = new BatonNull(client, cb);
 
   uv_queue_work(uv_default_loop(), &baton->request,
                 /*AsyncWork*/
                 [] (uv_work_t* req) {
-                  BatonBase* baton = static_cast<BatonBase*>(req->data);
+                  BatonNull* baton = static_cast<BatonNull*>(req->data);
                   baton->status = baton->client->close(baton->error);
                 },
                 /*AsyncAfter*/
                 [] (uv_work_s* req, int status) {
                   HandleScope scope;
-                  BatonBase* baton = static_cast<BatonBase*>(req->data);
+                  BatonNull* baton = static_cast<BatonNull*>(req->data);
 
                   const unsigned argc = 1;
                   Local<Value> argv[argc];
@@ -458,7 +454,6 @@ Handle<Value> Client::Close(const Arguments& args)
                     argv[0] = Integer::New(baton->status);
                   }
                   baton->callback->Call(Context::GetCurrent()->Global(), argc, argv);
-                  baton->callback.Dispose();
                   delete baton;
                 }
   );
@@ -507,17 +502,13 @@ Handle<Value> Client::KeyExists(const Arguments& args)
   }
   Local<Function> cb = Local<Function>::Cast(args[1]);
 
-  BatonKeyExists *baton = new BatonKeyExists();
+  BatonKeyExists *baton = new BatonKeyExists(client, cb);
 
   if (!getKeyFromArg(args[0], baton->key))
   {
     delete baton;
     return scope.Close(Undefined());
   }
-
-  baton->request.data = baton;
-  baton->callback = Persistent<Function>::New(cb);
-  baton->client = client;
 
   uv_queue_work(uv_default_loop(), &baton->request,
                 /*AsyncWork*/
@@ -544,7 +535,6 @@ Handle<Value> Client::KeyExists(const Arguments& args)
                     argv[1] = Local<Value>::New(Undefined());
                   }
                   baton->callback->Call(Context::GetCurrent()->Global(), argc, argv);
-                  baton->callback.Dispose();
                   delete baton;
                 }
   );
@@ -570,7 +560,8 @@ Handle<Value> Client::KeyPut(const Arguments& args)
     return scope.Close(Undefined());
   }
 
-  BatonKeyPut *baton = new BatonKeyPut();
+  Local<Function> cb(Local<Function>::Cast(args[2]));
+  BatonKeyPut *baton = new BatonKeyPut(client, cb);
 
   if (!getKeyFromKeyBinsArg(args[0], baton->key))
   {
@@ -583,10 +574,6 @@ Handle<Value> Client::KeyPut(const Arguments& args)
     delete baton;
     return scope.Close(Undefined());
   }
-
-  baton->request.data = baton;
-  baton->callback = Persistent<Function>::New(Local<Function>::Cast(args[2]));
-  baton->client = client;
 
   uv_queue_work(uv_default_loop(), &baton->request,
                 /*AsyncWork*/
@@ -612,7 +599,6 @@ Handle<Value> Client::KeyPut(const Arguments& args)
                     argv[0] = Integer::New(baton->status);
                   }
                   baton->callback->Call(Context::GetCurrent()->Global(), argc, argv);
-                  baton->callback.Dispose();
                   delete baton;
                 }
   );
@@ -638,17 +624,14 @@ Handle<Value> Client::KeyGet(const Arguments& args)
     return scope.Close(Undefined());
   }
 
-  BatonKeyGet *baton = new BatonKeyGet();
+  Local<Function> cb(Local<Function>::Cast(args[1]));
+  BatonKeyGet *baton = new BatonKeyGet(client, cb);
 
   if (!getKeyFromKeyBinsArg(args[0], baton->key))
   {
     delete baton;
     return scope.Close(Undefined());
   }
-
-  baton->request.data = baton;
-  baton->callback = Persistent<Function>::New(Local<Function>::Cast(args[1]));
-  baton->client = client;
 
   Handle<Object> obj = Handle<Object>::Cast(args[0]);
 
@@ -774,7 +757,6 @@ Handle<Value> Client::KeyGet(const Arguments& args)
                     argv[1] = Local<Value>::New(Undefined());
                   }
                   baton->callback->Call(Context::GetCurrent()->Global(), argc, argv);
-                  baton->callback.Dispose();
                   delete baton;
                 }
   );
@@ -805,17 +787,14 @@ Handle<Value> Client::KeyRemove(const Arguments& args)
     return scope.Close(Undefined());
   }
 
-  BatonKey *baton = new BatonKey();
+  Local<Function> cb(Local<Function>::Cast(args[1]));
+  BatonKey *baton = new BatonKey(client, cb);
 
   if (!getKeyFromArg(args[0], baton->key))
   {
     delete baton;
     return scope.Close(Undefined());
   }
-
-  baton->request.data = baton;
-  baton->callback = Persistent<Function>::New(Local<Function>::Cast(args[1]));
-  baton->client = client;
 
   uv_queue_work(uv_default_loop(), &baton->request,
                 /*AsyncWork*/
@@ -840,7 +819,6 @@ Handle<Value> Client::KeyRemove(const Arguments& args)
                     argv[0] = Integer::New(baton->status);
                   }
                   baton->callback->Call(Context::GetCurrent()->Global(), argc, argv);
-                  baton->callback.Dispose();
                   delete baton;
                 }
   );
