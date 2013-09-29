@@ -67,7 +67,13 @@ struct DataKeyGet
   char     **bins;
   size_t     bins_size;
 
-  ~DataKeyGet() {
+  DataKeyGet()
+    : record(NULL)
+  {
+  }
+
+  ~DataKeyGet()
+  {
     if (bins_size != 0) {
       for (size_t i = 0 ; i < bins_size ; ++i)
       {

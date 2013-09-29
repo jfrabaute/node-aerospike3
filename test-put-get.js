@@ -14,7 +14,7 @@ client.Connect({}, function(err) {
         record: {col1new: "value1-new", col2new: "value2-new", col3new: 3}},
         function(err, result) {
           assert.equal(err.code, 501, "error: Put-error");
-          cb(err.code == 501 ? undefined : err);
+          cb((err && err.code == 501) ? undefined : err);
       });
     },
     // Key-error
@@ -23,7 +23,7 @@ client.Connect({}, function(err) {
         function(err, result) {
           assert.equal(err, undefined, "error: Key-error");
           assert.equal(result, false);
-          cb(err == 501 ? undefined : err);
+          cb(err);
       });
     },
   ], function(err, results) {
@@ -61,7 +61,7 @@ client.Connect({}, function(err) {
     // Get-ok
     function(cb) {
       client.KeyGet({key: {ns: "test", set: "set", key: "__TEST_KEY_OK__"},
-        bins: ["col1new", "col3new"]},
+        record: ["col1new", "col3new"]},
         function(err, result) {
           assert.equal(err, undefined, "failed get-ok");
           assert.deepEqual(result, {col1new: "value1-new", col3new: 3});
