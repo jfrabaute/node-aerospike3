@@ -406,7 +406,11 @@ Handle<Value> Client::Connect(const Arguments& args)
                     argv[0] = ERRORNEWINSTANCE(baton->error);
                   }
 
+                  TryCatch try_catch;
                   baton->callback->Call(Context::GetCurrent()->Global(), argc, argv);
+                  if (try_catch.HasCaught()) {
+                    node::FatalException(try_catch);
+                  }
                   baton->callback.Dispose();
                   delete baton;
                 }
@@ -482,7 +486,11 @@ Handle<Value> Client::Close(const Arguments& args)
                   {
                     argv[0] = ERRORNEWINSTANCE(baton->error);
                   }
+                  TryCatch try_catch;
                   baton->callback->Call(Context::GetCurrent()->Global(), argc, argv);
+                  if (try_catch.HasCaught()) {
+                    node::FatalException(try_catch);
+                  }
                   delete baton;
                 }
   );
@@ -561,7 +569,11 @@ Handle<Value> Client::KeyExists(const Arguments& args)
                     argv[0] = ERRORNEWINSTANCE(baton->error);
                     argv[1] = Local<Value>::New(Undefined());
                   }
+                  TryCatch try_catch;
                   baton->callback->Call(Context::GetCurrent()->Global(), argc, argv);
+                  if (try_catch.HasCaught()) {
+                    node::FatalException(try_catch);
+                  }
                   delete baton;
                 }
   );
@@ -626,7 +638,11 @@ Handle<Value> Client::KeyPut(const Arguments& args)
                   {
                     argv[0] = ERRORNEWINSTANCE(baton->error);
                   }
+                  TryCatch try_catch;
                   baton->callback->Call(Context::GetCurrent()->Global(), argc, argv);
+                  if (try_catch.HasCaught()) {
+                    node::FatalException(try_catch);
+                  }
                   delete baton;
                 }
   );
@@ -785,7 +801,11 @@ Handle<Value> Client::KeyGet(const Arguments& args)
                     argv[0] = ERRORNEWINSTANCE(baton->error);
                     argv[1] = Local<Value>::New(Undefined());
                   }
+                  TryCatch try_catch;
                   baton->callback->Call(Context::GetCurrent()->Global(), argc, argv);
+                  if (try_catch.HasCaught()) {
+                    node::FatalException(try_catch);
+                  }
                   delete baton;
                 }
   );
@@ -848,7 +868,11 @@ Handle<Value> Client::KeyRemove(const Arguments& args)
                   {
                     argv[0] = ERRORNEWINSTANCE(baton->error);
                   }
+                  TryCatch try_catch;
                   baton->callback->Call(Context::GetCurrent()->Global(), argc, argv);
+                  if (try_catch.HasCaught()) {
+                    node::FatalException(try_catch);
+                  }
                   delete baton;
                 }
   );

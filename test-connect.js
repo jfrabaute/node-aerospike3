@@ -13,12 +13,12 @@ client.Connect({host: "1.1.1.1"}, function(err) {
         client.Close(function(err) {
             assert.equal(err, undefined);
             assert.equal(client.IsConnected(), false, "test client.IsConnected() on close");
-
+            /*
             client.Connect({host: "1.1.1.1"}, function(err) {
-                console.log("HERE", err);
                 assert.equal(err.code, 200);
                 assert.equal(client.IsConnected(), false, "test client.IsConnected()");
             });
+            */
         });
     });
 });
