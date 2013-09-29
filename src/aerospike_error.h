@@ -24,7 +24,8 @@ public:
 private:
   Error(std::unique_ptr<as_error> e)
     : error(std::move(e))
-  {}
+  {
+  }
 
   static Persistent<ObjectTemplate> error_templ;
 

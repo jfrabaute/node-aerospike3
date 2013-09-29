@@ -1,27 +1,49 @@
+// node --expose-gc --trace-gc test-connect.js
+
 var assert = require('assert'),
     aerospike = require('./aerospike');
 
 var client = new aerospike.Client();
 
-client.Connect({host: "1.1.1.1"}, function(err) {
-    assert.equal(err.code, 200);
-    assert.equal(client.IsConnected(), false, "test client.IsConnected()");
+var testConnectionOk = function() {
+    console.log('testConnectionOk - start');
+    client.Connect({host: "1.1.1.1"}, function(err) {
+        assert.equal(err.code, 200);
+        assert.equal(client.IsConnected(), false, "test client.IsConnected()");
 
-    client.Connect({}, function(err) {
-        assert.equal(err, undefined, "test connect ok");
-        assert.equal(client.IsConnected(), true, "test client.IsConnected() on connect");
-        client.Close(function(err) {
-            assert.equal(err, undefined);
-            assert.equal(client.IsConnected(), false, "test client.IsConnected() on close");
-            /*
-            client.Connect({host: "1.1.1.1"}, function(err) {
-                assert.equal(err.code, 200);
-                assert.equal(client.IsConnected(), false, "test client.IsConnected()");
+        client.Connect({}, function(err) {
+            assert.equal(err, undefined, "test connect ok");
+            assert.equal(client.IsConnected(), true, "test client.IsConnected() on connect");
+            client.Close(function(err) {
+                assert.equal(err, undefined);
+                assert.equal(client.IsConnected(), false, "test client.IsConnected() on close");
+                //global.gc();
+                console.log('END');
+                /*
+                client.Connect({host: "1.1.1.1"}, function(err) {
+                    assert.equal(err.code, 200);
+                    assert.equal(client.IsConnected(), false, "test client.IsConnected()");
+                });
+                */
             });
-            */
         });
     });
-});
+}
+
+var i = 0;
+var testConnectionError = function() {
+    i++;
+    if (i < 10000)
+        client.Connect({host: "127.0.0.1", port: 9876}, function(err) {
+            assert.equal(err.code, 200);
+            assert.equal(client.IsConnected(), false, "test client.IsConnected() - error");
+            testConnectionError();
+        });
+    else
+        testConnectionOk();
+}
+
+testConnectionError();
 
 /*
 for (var i = 0 ; i < 10 ; i++)

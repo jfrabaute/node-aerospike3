@@ -411,7 +411,6 @@ Handle<Value> Client::Connect(const Arguments& args)
                   if (try_catch.HasCaught()) {
                     node::FatalException(try_catch);
                   }
-                  baton->callback.Dispose();
                   delete baton;
                 }
   );
