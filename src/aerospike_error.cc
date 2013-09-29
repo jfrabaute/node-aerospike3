@@ -66,7 +66,9 @@ Handle<Value> Error::GetMessage(Local<String> property, const AccessorInfo &info
   Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
   void* ptr = wrap->Value();
   char* value = static_cast<Error*>(ptr)->error->message;
-  return String::New(value);
+  if (value != NULL)
+    return String::New(value);
+  return String::New("--Not Provided--");
 }
 
 Handle<Value> Error::GetFunc(Local<String> property, const AccessorInfo &info)
@@ -75,7 +77,9 @@ Handle<Value> Error::GetFunc(Local<String> property, const AccessorInfo &info)
   Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
   void* ptr = wrap->Value();
   const char* value = static_cast<Error*>(ptr)->error->func;
-  return String::New(value);
+  if (value != NULL)
+    return String::New(value);
+  return String::New("--Not Provided--");
 }
 
 Handle<Value> Error::GetFile(Local<String> property, const AccessorInfo &info)
@@ -84,7 +88,9 @@ Handle<Value> Error::GetFile(Local<String> property, const AccessorInfo &info)
   Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
   void* ptr = wrap->Value();
   const char* value = static_cast<Error*>(ptr)->error->file;
-  return String::New(value);
+  if (value != NULL)
+    return String::New(value);
+  return String::New("--Not Provided--");
 }
 
 Handle<Value> Error::GetLine(Local<String> property, const AccessorInfo &info)

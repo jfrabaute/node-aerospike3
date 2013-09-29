@@ -1,15 +1,8 @@
 var assert = require('assert'),
-    async = require('async');
-
-try {
-  var aerospike = require('./build/Debug/aerospike');
-} catch (error) {
-  var aerospike = require('./build/Release/aerospike');
-}
-    
+    async = require('async'),
+    aerospike = require('./aerospike');;
 
 var client = new aerospike.Client();
-
 
 client.Connect({}, function(err) {
   assert.equal(err, undefined, "failed connect");
@@ -20,8 +13,8 @@ client.Connect({}, function(err) {
       client.KeyPut({key: {ns: "ns", set: "set", key: "key"},
         record: {col1new: "value1-new", col2new: "value2-new", col3new: 3}},
         function(err, result) {
-          assert.equal(err, 501, "error: Put-error");
-          cb(err == 501 ? undefined : err);
+          assert.equal(err.code, 501, "error: Put-error");
+          cb(err.code == 501 ? undefined : err);
       });
     },
     // Key-error

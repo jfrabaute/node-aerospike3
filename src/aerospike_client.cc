@@ -611,7 +611,7 @@ Handle<Value> Client::KeyPut(const Arguments& args)
     return scope.Close(Undefined());
   }
 
-  Local<Function> cb(Local<Function>::Cast(args[2]));
+  Local<Function> cb(Local<Function>::Cast(args[1]));
   BatonKeyPut *baton = new BatonKeyPut(client, cb);
 
   if (!getKeyFromKeyBinsArg(args[0], baton->key))
