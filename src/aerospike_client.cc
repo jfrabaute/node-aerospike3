@@ -20,11 +20,25 @@ namespace {
 
   bool initConfigEntry(const Handle<Object> &object, uint32_t id, as_config &config)
   {
-    Handle<Value> addrJs = object->Get(String::New("host"));
     Handle<Value> port = object->Get(String::New("port"));
+    if (port->IsUndefined())
+    {
+      config.hosts[id].port = 3000;
+    }
+    else if (port->IsUint32())
+    {
+      config.hosts[id].port = port->Uint32Value();
+    }
+    else
+    {
+      ThrowException(Exception::TypeError(String::New("\"port\" property is not a number in config object")));
+      return false;
+    }
+
+    Handle<Value> addrJs = object->Get(String::New("host"));
     if (addrJs->IsUndefined())
     {
-        config.hosts[id].addr = "127.0.0.1";
+        config.hosts[id].addr = strdup("127.0.0.1");
     }
     else if (addrJs->IsString())
     {
@@ -44,19 +58,6 @@ namespace {
     else
     {
       ThrowException(Exception::TypeError(String::New("\"host\" property is not a string in config object")));
-      return false;
-    }
-    if (port->IsUndefined())
-    {
-      config.hosts[id].port = 3000;
-    }
-    else if (port->IsUint32())
-    {
-      config.hosts[id].port = port->Uint32Value();
-    }
-    else
-    {
-      ThrowException(Exception::TypeError(String::New("\"port\" property is not a number in config object")));
       return false;
     }
 
@@ -238,6 +239,7 @@ bool Client::connected = false;
 bool Client::connecting = false;
 
 Client::Client()
+  : nb_hosts(0)
 {
 }
 
@@ -313,7 +315,7 @@ Handle<Value> Client::Connect(const Arguments& args)
     return scope.Close(Undefined());
   }
 
-  as_config_init(&client->config);
+  client->initAsConfig();
 
   // Read the param
   if (args.Length() != 2)
@@ -321,8 +323,6 @@ Handle<Value> Client::Connect(const Arguments& args)
     ThrowException(Exception::TypeError(String::New("Invalid number of arguments.")));
     return scope.Close(Undefined());
   }
-
-  uint8_t hosts = 0;
 
   Local<Function> cb;
 
@@ -351,14 +351,14 @@ Handle<Value> Client::Connect(const Arguments& args)
       }
       if (!initConfigEntry(object->ToObject(), i, client->config))
         return scope.Close(Undefined());
-      hosts++;
+      client->nb_hosts++;
     }
   }
   else if (args[0]->IsObject())
   {
     if (!initConfigEntry(Handle<Object>::Cast(args[0]), 0, client->config))
       return scope.Close(Undefined());
-    hosts++;
+    client->nb_hosts++;
   }
   else
   {
@@ -366,7 +366,7 @@ Handle<Value> Client::Connect(const Arguments& args)
     return scope.Close(Undefined());
   }
 
-  if (hosts == 0)
+  if (client->nb_hosts == 0)
   {
     ThrowException(Exception::TypeError(String::New("No valid host provided")));
     return scope.Close(Undefined());
@@ -508,7 +508,20 @@ as_status Client::close(as_error &err)
     connected = false;
   }
 
+  initAsConfig();
+
   return result;
+}
+
+void Client::initAsConfig()
+{
+  for (uint8_t i = 0 ; i < nb_hosts ; i++)
+  {
+    free(const_cast<char*>(config.hosts[i].addr));
+  }
+  nb_hosts = 0;
+
+  as_config_init(&config);
 }
 
 Handle<Value> Client::KeyExists(const Arguments& args)

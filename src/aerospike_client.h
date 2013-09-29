@@ -37,10 +37,15 @@ private:
 private:
   as_status close(as_error &err);
 
+  void initAsConfig();
+
 // Internal object properties
 private:
   as_config config;
   aerospike as;
+
+  uint8_t nb_hosts;
+
   // This should not be static, but we allow only one client at a time right now
   static bool connected;
   static bool connecting;

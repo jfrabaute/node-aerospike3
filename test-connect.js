@@ -1,4 +1,5 @@
 // node --expose-gc --trace-gc test-connect.js
+// valgrind --leak-check=full --show-reachable=yes node --expose-gc --trace-gc test-connect.js
 
 var assert = require('assert'),
     aerospike = require('./aerospike');
@@ -17,7 +18,7 @@ var testConnectionOk = function() {
             client.Close(function(err) {
                 assert.equal(err, undefined);
                 assert.equal(client.IsConnected(), false, "test client.IsConnected() on close");
-                //global.gc();
+                global.gc();
                 console.log('END');
                 /*
                 client.Connect({host: "1.1.1.1"}, function(err) {
