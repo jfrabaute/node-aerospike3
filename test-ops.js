@@ -8,6 +8,14 @@ client.Connect({}, function(err) {
   assert.equal(err, undefined, "failed connect");
 
   async.series([
+    // Remove
+    function(cb) {
+       client.KeyRemove({ns: "test", set: "set", key: "__TEST_KEY_OPS__"},
+         function(err) {
+           assert.equal(err, undefined, "failed remove");
+           cb(err);
+       });
+    },
     // Put-ok
     function(cb) {
       client.KeyPut({key: {ns: "test", set: "set", key: "__TEST_KEY_OPS__"},
@@ -35,6 +43,7 @@ client.Connect({}, function(err) {
                             {op: "prepend_str", col: "col2new", value: "pre_"},
                             {op: "read", col: "col1new"},
                             {op: "touch"},
+                            {op: "write_str", col: "col4new", value: "test_write_ops"},
                          ]},
         function(err, result) {
           assert.equal(err, undefined, "failed ops-ok");
@@ -47,7 +56,7 @@ client.Connect({}, function(err) {
       client.KeyGet({key: {ns: "test", set: "set", key: "__TEST_KEY_OPS__"}},
         function(err, result) {
           assert.equal(err, undefined, "failed get-ok");
-          assert.deepEqual(result, {col1new: "value1-new_post", col2new: "pre_value2-new", col3new: 11});
+            assert.deepEqual(result, {col1new: "value1-new_post", col2new: "pre_value2-new", col3new: 11, col4new: "test_write_ops"});
           cb(err);
       });
     },
