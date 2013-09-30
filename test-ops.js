@@ -17,11 +17,21 @@ client.Connect({}, function(err) {
           cb(err);
       });
     },
+    // Get-ok
+    function(cb) {
+      client.KeyGet({key: {ns: "test", set: "set", key: "__TEST_KEY_OPS__"}},
+        function(err, result) {
+          assert.equal(err, undefined, "failed get-ok");
+          assert.deepEqual(result, {col1new: "value1-new", col2new: "value2-new", col3new: 3});
+          cb(err);
+      });
+    },
     // Ops
     function(cb) {
       client.KeyOperate({key:{ns: "test", set: "set", key: "__TEST_KEY_OPS__"},
                          ops: [
-                            {op: "append_str", col: "col1new", value: "_post"}
+                            {op: "append_str", col: "col1new", value: "_post"},
+                            {op: "incr", col: "col3new", value: 8}
                          ]},
         function(err, result) {
           assert.equal(err, undefined, "failed ops-ok");
@@ -34,7 +44,7 @@ client.Connect({}, function(err) {
       client.KeyGet({key: {ns: "test", set: "set", key: "__TEST_KEY_OPS__"}},
         function(err, result) {
           assert.equal(err, undefined, "failed get-ok");
-          assert.deepEqual(result, {col1new: "value1-new", col2new: "value2-new", col3new: 3});
+          assert.deepEqual(result, {col1new: "value1-new_post", col2new: "value2-new", col3new: 11});
           cb(err);
       });
     },
