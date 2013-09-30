@@ -6,7 +6,13 @@ A NodeJS client for Aerospike 3 NoSQL DB.
 Features
 --------
 
-* Connect to 
+* Connect to an aerospike cluster
+* Key operations
+** Put
+** Exists
+** Get
+** Remove
+** Operate
 
 Install
 -------
@@ -54,8 +60,10 @@ The first argument of the Connect method is:
 ### Put a key
 
 ```js
-client.KeyPut({key: {ns: "test", set: "set", key: "__TEST_KEY_OK__"},
-    record: {col1new: "value1-new", col2new: "value2-new", col3new: 3}},
+client.KeyPut({
+	key: {ns: "test", set: "set", key: "__TEST_KEY_OK__"},
+    	record: {col1new: "value1-new", col2new: "value2-new", col3new: 3}
+    },
     function(err) {
         assert.equal(err, undefined, "failed put-ok");
 });
@@ -75,8 +83,10 @@ client.KeyGet({key: {ns: "test", set: "set", key: "__TEST_KEY_OK__"}},
 #### specific records
 
 ```js
-client.KeyGet({key: {ns: "test", set: "set", key: "__TEST_KEY_OK__"},
-    record: ["col1new", "col3new"]},
+client.KeyGet({
+	key: {ns: "test", set: "set", key: "__TEST_KEY_OK__"},
+	record: ["col1new", "col3new"]
+    },
     function(err, result) {
         assert.equal(err, undefined, "failed get-ok");
         assert.deepEqual(result, {col1new: "value1-new", col3new: 3});
@@ -93,4 +103,25 @@ client.KeyExists({ns: "test", set: "set", key: "__TEST_KEY_OK__"},
         assert.equal(result, true);
 });
 ```
+
+### Operate on a key
+
+```js
+client.KeyOperate({
+	key: {ns: "test", set: "set", key: "__TEST_KEY_OK__"},
+	ops: [
+		{op: "append_str", col: "bin1", value: "_post"}, // Append to an existing column string
+		{op: "incr", col: "bin1", value: 12}, // Increment the value of a column
+		{op: "prepend_str", col: "bin1", value: "_post"}, // Prepend to an existing column string
+		{op: "read", col: "bin1"}, // Read a value from a bin. This is ideal, if you performed an operation on a bin, and want to read the new value.
+		{op: "touch"} // Touching a record will refresh its ttl and increment the generation of the record.
+		{op: "write_str", col: "bin3", value: "write"} // write a string
+		{op: "write_int64", col: "bin3", value: 123} // write an int64
+	]
+	},
+    function(err, result) {
+        assert.equal(err, undefined, "failed operate-ok");
+});
+```
+
 

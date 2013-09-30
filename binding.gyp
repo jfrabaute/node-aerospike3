@@ -5,7 +5,8 @@
       "sources": [
         "src/aerospike.cc",
         "src/aerospike_client.cc",
-        "src/aerospike_error.cc"
+        "src/aerospike_error.cc",
+        "src/helper.cc"
       ],
       "link_settings": {
         "libraries": [

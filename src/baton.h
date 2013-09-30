@@ -1,6 +1,9 @@
 #ifndef SRC_BATON_H
 #define SRC_BATON_H
 
+#include <vector>
+#include <string>
+
 namespace nodejs_aerospike {
 
 #define ERRORNEWINSTANCE(error) Error::NewInstance(std::move(error))
@@ -87,6 +90,34 @@ struct DataKeyGet
 };
 
 typedef BatonBase<DataKeyGet> BatonKeyGet;
+
+struct DataKeyOperate
+{
+  as_key        key;
+  as_operations ops;
+  as_record *record;
+
+  DataKeyOperate()
+    : record(NULL)
+    , destroy(false)
+  {
+  }
+
+  ~DataKeyOperate()
+  {
+    if (record != NULL)
+      as_record_destroy(record);
+    if (destroy)
+      as_operations_destroy(&ops);
+  }
+
+  bool destroy; // set to true if destroy needs to be called in the destructor
+
+  std::vector<std::string> strings; // Strings allocated for the data, that will be
+                                    // automatically destroyed
+};
+
+typedef BatonBase<DataKeyOperate> BatonKeyOperate;
 
 }
 

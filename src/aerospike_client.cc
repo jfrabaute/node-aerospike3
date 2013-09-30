@@ -1,6 +1,7 @@
 
 #include <node.h>
 #include <string.h>
+
 extern "C" {
   #include <aerospike/as_key.h>
   #include <aerospike/aerospike_key.h>
@@ -11,8 +12,10 @@ extern "C" {
 #include "aerospike_client.h"
 #include "aerospike_error.h"
 #include "baton.h"
+#include "helper.h"
 
 using namespace v8;
+using namespace nodejs_aerospike::helper;
 
 namespace nodejs_aerospike {
 
@@ -64,173 +67,6 @@ namespace {
     return true;
   }
 
-  bool getKeyFromObject(const Handle<Object> &arg, as_key &key)
-  {
-    Handle<Object> obj = Handle<Object>::Cast(arg);
-
-    Handle<Value> ns = obj->Get(String::New("ns"));
-    if (!ns->IsString())
-    {
-      ThrowException(Exception::TypeError(String::New("Missing or non string \"ns\" property in key object.")));
-      return false;
-    }
-    String::AsciiValue ns_str(ns);
-    if (ns_str.length() == 0)
-    {
-      ThrowException(Exception::TypeError(String::New("\"ns\" property could not be converted into a valid ascii string")));
-      return false;
-    }
-
-    Handle<Value> set = obj->Get(String::New("set"));
-    if (!set->IsString())
-    {
-      ThrowException(Exception::TypeError(String::New("Missing or non string \"set\" property in key object.")));
-      return false;
-    }
-    String::AsciiValue set_str(set);
-    if (set_str.length() == 0)
-    {
-      ThrowException(Exception::TypeError(String::New("\"set\" property could not be converted into a valid ascii string")));
-      return false;
-    }
-
-    Handle<Value> key_name = obj->Get(String::New("key"));
-    if (key_name->IsString())
-    {
-      String::AsciiValue key_str(key_name);
-      if (key_str.length() == 0)
-      {
-        as_key_init_raw(&key, *ns_str, *set_str, reinterpret_cast<const uint8_t*>(*String::Utf8Value(key_name->ToString())), key_name->ToString()->Utf8Length());
-      }
-      else
-      {
-        as_key_init_str(&key, *ns_str, *set_str, strdup(*key_str));
-      }
-    }
-    else if (key_name->IsNumber())
-    {
-      as_key_init_int64(&key, *ns_str, *set_str, key_name->ToNumber()->Value());
-    }
-    else
-    {
-      ThrowException(Exception::TypeError(String::New("Invalid or unsupported type for \"key\" property in key object.")));
-      return false;
-    }
-
-    return true;
-  }
-
-  bool getKeyFromKeyBinsArg(const Handle<Value> &arg, as_key &key)
-  {
-    if (!arg->IsObject())
-    {
-      ThrowException(Exception::TypeError(String::New("Expected object for argument.")));
-      return false;
-    }
-
-    Handle<Object> obj = Handle<Object>::Cast(arg);
-    Handle<Value> keyArg = obj->Get(String::New("key"));
-    if (!keyArg->IsObject())
-    {
-      ThrowException(Exception::TypeError(String::New("Expected object for key argument.")));
-      return false;
-    }
-
-    return getKeyFromObject(Handle<Object>::Cast(keyArg), key);
-  }
-
-  bool getKeyFromArg(const Handle<Value> &arg, as_key &key)
-  {
-    if (!arg->IsObject())
-    {
-      ThrowException(Exception::TypeError(String::New("Expected object type for key argument.")));
-      return false;
-    }
-
-    return getKeyFromObject(Handle<Object>::Cast(arg), key);
-  }
-
-  bool getRecordFromObject(const Handle<Object> &rec, as_record &record)
-  {
-    Local<Array> properties = rec->GetOwnPropertyNames();
-    if (properties->Length() == 0)
-    {
-      ThrowException(Exception::TypeError(String::New("No values defined in the record.")));
-      return false;
-    }
-
-    as_record_init(&record, properties->Length());
-    for (uint32_t i = 0 ; i < properties->Length() ; ++i)
-    {
-      Handle<Value> rec_name = properties->Get(i);
-      String::AsciiValue rec_str(rec_name);
-      if (rec_str.length() == 0)
-      {
-        ThrowException(Exception::TypeError(String::New("one record property could not be converted into a valid ascii string")));
-        as_record_destroy(&record);
-        return false;
-      }
-      else if (rec_str.length() > AS_BIN_NAME_MAX_LEN)
-      {
-        ThrowException(Exception::TypeError(String::New("one record property is too big (15 characters max)")));
-        as_record_destroy(&record);
-        return false;
-      }
-      Handle<Value> value = rec->Get(rec_name);
-      if (value->IsNumber())
-      {
-        as_record_set_int64(&record, *rec_str, value->ToNumber()->Value());
-      }
-      else if (value->IsString())
-      {
-        String::AsciiValue value_str(value);
-        if (value_str.length() == 0)
-        {
-          as_record_set_raw(&record, *rec_str, reinterpret_cast<const uint8_t*>(*String::Utf8Value(value->ToString())), value->ToString()->Utf8Length());
-        }
-        else
-        {
-          as_record_set_str(&record, *rec_str, strdup(*value_str));
-        }
-      }
-      else if (value->IsNull())
-      {
-        as_record_set_nil(&record, *rec_str);
-      }
-      else
-      {
-        ThrowException(Exception::TypeError(String::New("Invalid type for one value in the record.")));
-        as_record_destroy(&record);
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  bool getRecordFromKeyRecordObject(const Handle<Object> &obj, as_record &record)
-  {
-    Handle<Value> rec = obj->Get(String::New("record"));
-
-    if (!rec->IsObject())
-    {
-      ThrowException(Exception::TypeError(String::New("Expected object type for \"record\" property.")));
-      return false;
-    }
-
-    return getRecordFromObject(Handle<Object>::Cast(rec), record);
-  }
-
-  bool getRecordFromKeyRecordArg(const Handle<Value> &arg, as_record &record)
-  {
-    if (!arg->IsObject())
-    {
-      ThrowException(Exception::TypeError(String::New("Expected object type for argument.")));
-      return false;
-    }
-
-    return getRecordFromKeyRecordObject(Handle<Object>::Cast(arg), record);
-  }
 
 } // unamed namespace
 
@@ -270,6 +106,7 @@ void Client::Init(Handle<Object> target)
   proto->Set(String::NewSymbol("KeyPut"), FunctionTemplate::New(MY_NODE_ISOLATE_PRE KeyPut)->GetFunction()   );
   proto->Set(String::NewSymbol("KeyGet"), FunctionTemplate::New(MY_NODE_ISOLATE_PRE KeyGet)->GetFunction()   );
   proto->Set(String::NewSymbol("KeyRemove"), FunctionTemplate::New(MY_NODE_ISOLATE_PRE KeyRemove)->GetFunction()   );
+  proto->Set(String::NewSymbol("KeyOperate"), FunctionTemplate::New(MY_NODE_ISOLATE_PRE KeyOperate)->GetFunction()   );
 
   Persistent<Function> constructor = Persistent<Function>::New(MY_NODE_ISOLATE_PRE tpl->GetFunction());
   target->Set(String::NewSymbol("Client"), constructor);
@@ -550,7 +387,7 @@ Handle<Value> Client::KeyExists(const Arguments& args)
   Local<Function> cb(Local<Function>::Cast(args[1]));
   BatonKeyExists *baton = new BatonKeyExists(client, cb);
 
-  if (!getKeyFromArg(args[0], baton->key))
+  if (!Helper::GetKeyFromArg(args[0], baton->key))
   {
     delete baton;
     return scope.Close(Undefined());
@@ -614,13 +451,13 @@ Handle<Value> Client::KeyPut(const Arguments& args)
   Local<Function> cb(Local<Function>::Cast(args[1]));
   BatonKeyPut *baton = new BatonKeyPut(client, cb);
 
-  if (!getKeyFromKeyBinsArg(args[0], baton->key))
+  if (!Helper::GetKeyFromKeyBinsArg(args[0], baton->key))
   {
     delete baton;
     return scope.Close(Undefined());
   }
 
-  if (!getRecordFromKeyRecordArg(args[0], baton->record))
+  if (!Helper::GetRecordFromKeyRecordArg(args[0], baton->record))
   {
     delete baton;
     return scope.Close(Undefined());
@@ -683,7 +520,7 @@ Handle<Value> Client::KeyGet(const Arguments& args)
   Local<Function> cb(Local<Function>::Cast(args[1]));
   BatonKeyGet *baton = new BatonKeyGet(client, cb);
 
-  if (!getKeyFromKeyBinsArg(args[0], baton->key))
+  if (!Helper::GetKeyFromKeyBinsArg(args[0], baton->key))
   {
     delete baton;
     return scope.Close(Undefined());
@@ -851,7 +688,7 @@ Handle<Value> Client::KeyRemove(const Arguments& args)
   Local<Function> cb(Local<Function>::Cast(args[1]));
   BatonKey *baton = new BatonKey(client, cb);
 
-  if (!getKeyFromArg(args[0], baton->key))
+  if (!Helper::GetKeyFromArg(args[0], baton->key))
   {
     delete baton;
     return scope.Close(Undefined());
@@ -879,6 +716,118 @@ Handle<Value> Client::KeyRemove(const Arguments& args)
                   else
                   {
                     argv[0] = ERRORNEWINSTANCE(baton->error);
+                  }
+                  TryCatch try_catch;
+                  baton->callback->Call(Context::GetCurrent()->Global(), argc, argv);
+                  if (try_catch.HasCaught()) {
+                    node::FatalException(try_catch);
+                  }
+                  delete baton;
+                }
+  );
+
+  return scope.Close(Undefined());
+}
+
+Handle<Value> Client::KeyOperate(const Arguments& args)
+{
+  MY_NODE_ISOLATE_DECL
+  MY_HANDLESCOPE
+
+  Client *client = ObjectWrap::Unwrap<Client>(args.Holder());
+
+  if (args.Length() < 2)
+  {
+    ThrowException(Exception::TypeError(String::New("Missing arguments")));
+    return scope.Close(Undefined());
+  }
+  if (!args[0]->IsObject())
+  {
+    ThrowException(Exception::TypeError(String::New("First argument is not an object")));
+    return scope.Close(Undefined());
+  }
+  if (!args[1]->IsFunction())
+  {
+    ThrowException(Exception::TypeError(String::New("Second argument is not a function")));
+    return scope.Close(Undefined());
+  }
+
+  Local<Function> cb(Local<Function>::Cast(args[1]));
+  BatonKeyOperate *baton = new BatonKeyOperate(client, cb);
+
+  if (!Helper::PopulateOps(args[0]->ToObject(), baton))
+  {
+    delete baton;
+    return scope.Close(Undefined());
+  }
+
+  uv_queue_work(uv_default_loop(), &baton->request,
+                /*AsyncWork*/
+                [] (uv_work_t* req) {
+                  BatonKeyOperate* baton = static_cast<BatonKeyOperate*>(req->data);
+                  // Return only requested bins
+                  aerospike_key_operate(&baton->client->as, baton->error.get(), NULL, &baton->key, &baton->ops, &baton->record);
+                },
+                /*AsyncAfter*/
+                [] (uv_work_s* req, int status) {
+                  MY_NODE_ISOLATE_DECL
+                  MY_HANDLESCOPE
+
+                  BatonKeyOperate* baton = static_cast<BatonKeyOperate*>(req->data);
+
+                  const unsigned argc = 2;
+                  Local<Value> argv[argc];
+                  if (baton->error->code == AEROSPIKE_OK)
+                  {
+                    argv[0] = Local<Value>::New(Undefined());
+                    // Transform the ac_record into a js object
+                    argv[1] = Object::New();
+
+                    if (baton->record != NULL)
+                    {
+                      as_record_iterator it;
+                      as_record_iterator_init(&it, baton->record);
+
+                      bool error = false;
+                      while ( as_record_iterator_has_next(&it) )
+                      {
+                        as_bin * bin = as_record_iterator_next(&it);
+                        as_val * value = (as_val *) as_bin_get_value(bin);
+                        switch ( as_val_type(value) ) {
+                          case AS_NIL:
+                            Local<Object>::Cast(argv[1])->Set(String::NewSymbol(as_bin_get_name(bin)), Null());
+                            break;
+                          case AS_INTEGER:
+                            Local<Object>::Cast(argv[1])->Set(String::NewSymbol(as_bin_get_name(bin)), Number::New(as_record_get_int64 (baton->record, bin->name, 0)));
+                            break;
+                          case AS_STRING:
+                            Local<Object>::Cast(argv[1])->Set(String::NewSymbol(as_bin_get_name(bin)), String::New(as_string_get(as_string_fromval(value))));
+                            break;
+                          case AS_UNDEF:
+                            Local<Object>::Cast(argv[1])->Set(String::NewSymbol(as_bin_get_name(bin)), Undefined());
+                            break;
+                          case AS_BYTES:
+                          case AS_LIST:
+                          case AS_MAP:
+                          case AS_REC:
+                          default:
+                            argv[0] = Local<Value>::New(String::New("Type not supported"));
+                            argv[1] = Local<Value>::New(Undefined());
+                            error = true;
+                            break;
+                        }
+                        if (error)
+                          break;
+                      }
+                      as_record_iterator_destroy(&it);
+
+                      as_record_destroy(baton->record);
+                    }
+                  }
+                  else
+                  {
+                    argv[0] = ERRORNEWINSTANCE(baton->error);
+                    argv[1] = Local<Value>::New(Undefined());
                   }
                   TryCatch try_catch;
                   baton->callback->Call(Context::GetCurrent()->Global(), argc, argv);

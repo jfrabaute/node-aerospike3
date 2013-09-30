@@ -32,6 +32,7 @@ private:
   static Handle<Value> KeyPut(const Arguments& args);
   static Handle<Value> KeyGet(const Arguments& args);
   static Handle<Value> KeyRemove(const Arguments& args);
+  static Handle<Value> KeyOperate(const Arguments& args);
 
 // Internal object methods
 private:
