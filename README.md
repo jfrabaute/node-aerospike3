@@ -8,11 +8,20 @@ Features
 
 * Connect to an aerospike cluster
 * Key operations
-** Put
-** Exists
-** Get
-** Remove
-** Operate
+ * Put
+ * Exists
+ * Get
+ * Remove
+ * Operate
+  * append_str
+  * incr
+  * prepend_str
+  * read
+  * touch
+  * write_str
+  * write_int64
+  * write_int64
+
 
 Install
 -------
