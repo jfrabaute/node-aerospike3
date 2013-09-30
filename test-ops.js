@@ -44,6 +44,7 @@ client.Connect({}, function(err) {
                             {op: "read", col: "col1new"},
                             {op: "touch"},
                             {op: "write_str", col: "col4new", value: "test_write_ops"},
+                            {op: "write_int64", col: "col5new", value: 124},
                          ]},
         function(err, result) {
           assert.equal(err, undefined, "failed ops-ok");
@@ -56,7 +57,10 @@ client.Connect({}, function(err) {
       client.KeyGet({key: {ns: "test", set: "set", key: "__TEST_KEY_OPS__"}},
         function(err, result) {
           assert.equal(err, undefined, "failed get-ok");
-            assert.deepEqual(result, {col1new: "value1-new_post", col2new: "pre_value2-new", col3new: 11, col4new: "test_write_ops"});
+            assert.deepEqual(result, {col1new: "value1-new_post", col2new: "pre_value2-new",
+                                      col3new: 11,
+                                      col4new: "test_write_ops",
+                                      col5new: 124});
           cb(err);
       });
     },
