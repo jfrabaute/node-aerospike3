@@ -33,7 +33,7 @@ client.Connect({}, function(err) {
                             {op: "append_str", col: "col1new", value: "_post"},
                             {op: "incr", col: "col3new", value: 8},
                             {op: "read", col: "col1new"},
-
+                            {op: "touch"},
                          ]},
         function(err, result) {
           assert.equal(err, undefined, "failed ops-ok");

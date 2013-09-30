@@ -385,8 +385,13 @@ bool Helper::OpsRead(const Handle<Object> &obj, DataKeyOperate *dataOps)
 
 bool Helper::OpsTouch(const Handle<Object> &obj, DataKeyOperate *dataOps)
 {
-  ThrowException(Exception::TypeError(String::New("Operation not implemented yet")));
-  return false;
+  if (!as_operations_add_touch(&dataOps->ops))
+  {
+    ThrowException(Exception::TypeError(String::New("Unknown error in internal operation (as_operations_add_touch)")));
+    return false;
+  }
+
+  return true;
 }
 
 bool Helper::OpsWriteStr(const Handle<Object> &obj, DataKeyOperate *dataOps)
