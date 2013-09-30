@@ -348,8 +348,48 @@ bool Helper::OpsIncr(const Handle<Object> &obj, DataKeyOperate *dataOps)
 
 bool Helper::OpsPrependStr(const Handle<Object> &obj, DataKeyOperate *dataOps)
 {
-  ThrowException(Exception::TypeError(String::New("Operation not implemented yet")));
-  return false;
+  Handle<Value> colVal = obj->Get(String::NewSymbol("col"));
+  if (!colVal->IsString())
+  {
+    ThrowException(Exception::TypeError(String::New("\"col\" property is undefined or not a string")));
+    return false;
+  }
+  String::AsciiValue col(colVal);
+  if (col.length() == 0)
+  {
+    ThrowException(Exception::TypeError(String::New("Unable to convert \"col\" property value to ascii string")));
+    return false;
+  }
+  else if (col.length() > AS_BIN_NAME_MAX_LEN)
+  {
+    ThrowException(Exception::TypeError(String::New("one \"col\" property is too big (15 characters max)")));
+    return false;
+  }
+  dataOps->strings.push_back(*col);
+
+  Handle<Value> valueVal = obj->Get(String::NewSymbol("value"));
+  if (!valueVal->IsString())
+  {
+    ThrowException(Exception::TypeError(String::New("\"value\" property is undefined or not a string")));
+    return false;
+  }
+  String::AsciiValue value(valueVal);
+  if (value.length() == 0 && valueVal->ToString()->Length() != 0)
+  {
+    ThrowException(Exception::TypeError(String::New("Unable to convert \"value\" value to ascii string")));
+    return false;
+  }
+  dataOps->strings.push_back(*value);
+
+  if (!as_operations_add_prepend_str(&dataOps->ops,
+                                    (dataOps->strings.rbegin()+1)->c_str(),
+                                    dataOps->strings.back().c_str()))
+  {
+    ThrowException(Exception::TypeError(String::New("Unknown error in internal operation (as_operations_add_prepend_str)")));
+    return false;
+  }
+
+  return true;
 }
 
 bool Helper::OpsRead(const Handle<Object> &obj, DataKeyOperate *dataOps)

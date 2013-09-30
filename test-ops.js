@@ -32,6 +32,7 @@ client.Connect({}, function(err) {
                          ops: [
                             {op: "append_str", col: "col1new", value: "_post"},
                             {op: "incr", col: "col3new", value: 8},
+                            {op: "prepend_str", col: "col2new", value: "pre_"},
                             {op: "read", col: "col1new"},
                             {op: "touch"},
                          ]},
@@ -46,7 +47,7 @@ client.Connect({}, function(err) {
       client.KeyGet({key: {ns: "test", set: "set", key: "__TEST_KEY_OPS__"}},
         function(err, result) {
           assert.equal(err, undefined, "failed get-ok");
-          assert.deepEqual(result, {col1new: "value1-new_post", col2new: "value2-new", col3new: 11});
+          assert.deepEqual(result, {col1new: "value1-new_post", col2new: "pre_value2-new", col3new: 11});
           cb(err);
       });
     },
