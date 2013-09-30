@@ -31,11 +31,13 @@ client.Connect({}, function(err) {
       client.KeyOperate({key:{ns: "test", set: "set", key: "__TEST_KEY_OPS__"},
                          ops: [
                             {op: "append_str", col: "col1new", value: "_post"},
-                            {op: "incr", col: "col3new", value: 8}
+                            {op: "incr", col: "col3new", value: 8},
+                            {op: "read", col: "col1new"},
+
                          ]},
         function(err, result) {
           assert.equal(err, undefined, "failed ops-ok");
-          assert.deepEqual(result, {}, "result ok");
+          assert.deepEqual(result, {col1new: "value1-new_post"}, "result ok");
           cb(err);
       });
     },
