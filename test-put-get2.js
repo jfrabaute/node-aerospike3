@@ -1,7 +1,7 @@
 var assert = require('assert'),
     aerospike = require('./aerospike');
 
-var client = new aerospike.Client();
+var client = aerospike.createClient();
 
 var max = 1000;
 

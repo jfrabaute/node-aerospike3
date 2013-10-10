@@ -2,7 +2,7 @@ var assert = require('assert'),
     async = require('async'),
     aerospike = require('./aerospike');
 
-var client = new aerospike.Client();
+var client = aerospike.createClient();
 
 client.Connect({}, function(err) {
   assert.equal(err, undefined, "failed connect");

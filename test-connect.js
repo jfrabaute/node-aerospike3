@@ -4,7 +4,7 @@
 var assert = require('assert'),
     aerospike = require('./aerospike');
 
-var client = new aerospike.Client();
+var client = aerospike.createClient();
 
 var testConnectionOk = function() {
     console.log('testConnectionOk - start');
@@ -34,10 +34,11 @@ var testConnectionOk = function() {
 var i = 0;
 var testConnectionError = function() {
     i++;
-    if (i < 10000)
+    if (i < 2/*000*/)
         client.Connect({host: "127.0.0.1", port: 9876}, function(err) {
             assert.equal(err.code, 200);
             assert.equal(client.IsConnected(), false, "test client.IsConnected() - error");
+            global.gc();
             testConnectionError();
         });
     else

@@ -2,13 +2,18 @@
   "name": "aerospike",
   "version": "0.0.1",
   "description": "Aerospike db client for Node.js",
+  "author": "Fabrice <jfr@core-services.fr>",
   "keywords": ["database","db","native","binding","library","plugin","client","aerospike","citrusleaf"],
   "main": "aerospike.js",
   "private": true,
   "gypfile": true,
-  "maintainers" :
-  [ { "name": "Fabrice Rabaute"
-    , "email": "jfr@core-services.fr"
+  "maintainers": [ 
+    {
+      "name": "Fabrice Rabaute",
+      "email": "jfr@core-services.fr"
     }
-  ]
+  ],
+  "scripts": {
+    "test": "for t in $(ls test-*); do node --expose-gc --trace-gc $t; done"
+  }
 }

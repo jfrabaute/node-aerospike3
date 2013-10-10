@@ -49,8 +49,8 @@ Usage
 ### Create a client and connect to the DB:
 
 ```js
-var aerospike = require(''),
-    client = new aerospike.Client();
+var aerospike = require('aerospike'),
+    client = aerospike.createClient();
 
 client.Connect({}, function(err) {
     if (err) throw err;

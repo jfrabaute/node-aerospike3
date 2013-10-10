@@ -85,6 +85,8 @@ Client::~Client()
   close(error);
 }
 
+Persistent<Function> Client::client_constructor;
+
 void Client::Init(Handle<Object> target)
 {
   MY_NODE_ISOLATE_DECL
@@ -108,19 +110,26 @@ void Client::Init(Handle<Object> target)
   proto->Set(String::NewSymbol("KeyRemove"), FunctionTemplate::New(MY_NODE_ISOLATE_PRE KeyRemove)->GetFunction()   );
   proto->Set(String::NewSymbol("KeyOperate"), FunctionTemplate::New(MY_NODE_ISOLATE_PRE KeyOperate)->GetFunction()   );
 
-  Persistent<Function> constructor = Persistent<Function>::New(MY_NODE_ISOLATE_PRE tpl->GetFunction());
-  target->Set(String::NewSymbol("Client"), constructor);
+  client_constructor = Persistent<Function>::New(MY_NODE_ISOLATE_PRE tpl->GetFunction());
+}
+
+Handle<Value> Client::NewInstance(const Arguments& args)
+{
+  HandleScope scope;
+
+  if (args.IsConstructCall())
+  {
+    return ThrowException(Exception::TypeError(String::New("Use the createClient method to create new Client objects")));
+  }
+
+  Local<Object> instance = client_constructor->NewInstance();
+  return scope.Close(instance);
 }
 
 Handle<Value> Client::New(const Arguments& args)
 {
   MY_NODE_ISOLATE_DECL
   MY_HANDLESCOPE
-
-  if (!args.IsConstructCall())
-  {
-    return ThrowException(Exception::TypeError(String::New("Use the new operator to create new Client objects")));
-  }
 
   if (Client::connected || Client::connecting)
   {

@@ -2,7 +2,7 @@ var assert = require('assert'),
     async = require('async'),
     aerospike = require('./aerospike');
 
-var client = new aerospike.Client();
+var client = aerospike.createClient();
 
 client.Connect({}, function(err) {
   assert.equal(err, undefined, "failed connect");
@@ -12,8 +12,7 @@ client.Connect({}, function(err) {
     function(cb) {
        client.KeyRemove({ns: "test", set: "set", key: "__TEST_KEY_OPS__"},
          function(err) {
-           assert.equal(err, undefined, "failed remove");
-           cb(err);
+           cb(null);
        });
     },
     // Put-ok
@@ -63,6 +62,14 @@ client.Connect({}, function(err) {
                                       col5new: 124});
           cb(err);
       });
+    },
+    // remove
+    function(cb) {
+       client.KeyRemove({ns: "test", set: "set", key: "__TEST_KEY_OPS__"},
+         function(err) {
+           assert.equal(err, undefined, "failed remove");
+           cb(err);
+       });
     },
   ], function(err, results) {
     assert.equal(err, undefined);

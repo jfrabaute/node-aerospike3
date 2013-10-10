@@ -16,6 +16,8 @@ public:
   void AddRef() { Ref(); }
   void Release() { Unref(); }
 
+  static Handle<v8::Value> NewInstance(const Arguments& args);
+
 private:
   Client();
   ~Client();
@@ -39,6 +41,8 @@ private:
   as_status close(as_error &err);
 
   void initAsConfig();
+
+  static Persistent<Function> client_constructor;
 
 // Internal object properties
 private:
