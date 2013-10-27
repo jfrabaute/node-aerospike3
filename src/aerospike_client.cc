@@ -24,49 +24,34 @@ namespace {
   bool initConfigEntry(const Handle<Object> &object, uint32_t id, as_config &config)
   {
     Handle<Value> port = object->Get(String::New("port"));
-    if (port->IsUndefined())
-    {
-      config.hosts[id].port = 3000;
-    }
-    else if (port->IsUint32())
-    {
-      config.hosts[id].port = port->Uint32Value();
-    }
-    else
+    if (!port->IsUint32())
     {
       ThrowException(Exception::TypeError(String::New("\"port\" property is not a number in config object")));
       return false;
     }
+    config.hosts[id].port = port->Uint32Value();
 
     Handle<Value> addrJs = object->Get(String::New("host"));
-    if (addrJs->IsUndefined())
-    {
-        config.hosts[id].addr = strdup("127.0.0.1");
-    }
-    else if (addrJs->IsString())
-    {
-      String::AsciiValue addr(addrJs);
-      if (addr.length() == 0)
-      {
-        ThrowException(Exception::TypeError(String::New("\"host\" property could not be converted into a valid ascii string")));
-        return false;
-      }
-      config.hosts[id].addr = strdup(*addr);
-      if (config.hosts[id].addr == NULL)
-      {
-        ThrowException(Exception::TypeError(String::New("Not Enough Memory: Unable to copy the addr data")));
-        return false;
-      }
-    }
-    else
+    if (!addrJs->IsString())
     {
       ThrowException(Exception::TypeError(String::New("\"host\" property is not a string in config object")));
+      return false;
+    }
+    String::AsciiValue addr(addrJs);
+    if (addr.length() == 0)
+    {
+      ThrowException(Exception::TypeError(String::New("\"host\" property could not be converted into a valid ascii string")));
+      return false;
+    }
+    config.hosts[id].addr = strdup(*addr);
+    if (config.hosts[id].addr == NULL)
+    {
+      ThrowException(Exception::TypeError(String::New("Not Enough Memory: Unable to copy the addr data")));
       return false;
     }
 
     return true;
   }
-
 
 } // unamed namespace
 
@@ -180,37 +165,29 @@ Handle<Value> Client::Connect(const Arguments& args)
   }
   cb = Local<Function>::Cast(args[1]);
 
-  if (args[0]->IsArray())
-  {
-    Handle<Array> array = Handle<Array>::Cast(args[0]);
-    if (array->Length() > AS_CONFIG_HOSTS_SIZE)
-    {
-      ThrowException(Exception::TypeError(String::New("Too many hosts provided: The maximum number of possible host is 256.")));
-      return scope.Close(Undefined());
-    }
-    for (uint32_t i = 0 ; i < array->Length() ; ++i)
-    {
-      Handle<Value> object =array->Get(i);
-      if (!object->IsObject())
-      {
-        ThrowException(Exception::TypeError(String::New("Wrong array entry (must be an object)")));
-        return scope.Close(Undefined());
-      }
-      if (!initConfigEntry(object->ToObject(), i, client->config))
-        return scope.Close(Undefined());
-      client->nb_hosts++;
-    }
-  }
-  else if (args[0]->IsObject())
-  {
-    if (!initConfigEntry(Handle<Object>::Cast(args[0]), 0, client->config))
-      return scope.Close(Undefined());
-    client->nb_hosts++;
-  }
-  else
+  if (!args[0]->IsArray())
   {
     ThrowException(Exception::TypeError(String::New("Wrong first argument type (must be either object or array of objects)")));
     return scope.Close(Undefined());
+  }
+
+  Handle<Array> array = Handle<Array>::Cast(args[0]);
+  if (array->Length() > AS_CONFIG_HOSTS_SIZE)
+  {
+    ThrowException(Exception::TypeError(String::New("Too many hosts provided: The maximum number of possible host is 256.")));
+    return scope.Close(Undefined());
+  }
+  for (uint32_t i = 0 ; i < array->Length() ; ++i)
+  {
+    Handle<Value> object =array->Get(i);
+    if (!object->IsObject())
+    {
+      ThrowException(Exception::TypeError(String::New("Wrong array entry (must be an object)")));
+      return scope.Close(Undefined());
+    }
+    if (!initConfigEntry(object->ToObject(), i, client->config))
+      return scope.Close(Undefined());
+    client->nb_hosts++;
   }
 
   if (client->nb_hosts == 0)
