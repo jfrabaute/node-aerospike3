@@ -100,15 +100,16 @@ void Client::Init(Handle<Object> target)
   Handle<ObjectTemplate> proto = tpl->PrototypeTemplate();
 
   // Add methods
-  proto->Set(String::NewSymbol("Connect"), FunctionTemplate::New(MY_NODE_ISOLATE_PRE Connect)->GetFunction() );
-  proto->Set(String::NewSymbol("IsConnected"), FunctionTemplate::New(MY_NODE_ISOLATE_PRE IsConnected)->GetFunction() );
-  proto->Set(String::NewSymbol("Close"), FunctionTemplate::New(MY_NODE_ISOLATE_PRE Close)->GetFunction()   );
+  proto->Set(String::NewSymbol("connect"), FunctionTemplate::New(MY_NODE_ISOLATE_PRE Connect)->GetFunction() );
+  proto->Set(String::NewSymbol("isConnected"), FunctionTemplate::New(MY_NODE_ISOLATE_PRE IsConnected)->GetFunction() );
+  proto->Set(String::NewSymbol("isConnecting"), FunctionTemplate::New(MY_NODE_ISOLATE_PRE IsConnecting)->GetFunction() );
+  proto->Set(String::NewSymbol("close"), FunctionTemplate::New(MY_NODE_ISOLATE_PRE Close)->GetFunction()   );
 
-  proto->Set(String::NewSymbol("KeyExists"), FunctionTemplate::New(MY_NODE_ISOLATE_PRE KeyExists)->GetFunction()   );
-  proto->Set(String::NewSymbol("KeyPut"), FunctionTemplate::New(MY_NODE_ISOLATE_PRE KeyPut)->GetFunction()   );
-  proto->Set(String::NewSymbol("KeyGet"), FunctionTemplate::New(MY_NODE_ISOLATE_PRE KeyGet)->GetFunction()   );
-  proto->Set(String::NewSymbol("KeyRemove"), FunctionTemplate::New(MY_NODE_ISOLATE_PRE KeyRemove)->GetFunction()   );
-  proto->Set(String::NewSymbol("KeyOperate"), FunctionTemplate::New(MY_NODE_ISOLATE_PRE KeyOperate)->GetFunction()   );
+  proto->Set(String::NewSymbol("keyExists"), FunctionTemplate::New(MY_NODE_ISOLATE_PRE KeyExists)->GetFunction()   );
+  proto->Set(String::NewSymbol("keyPut"), FunctionTemplate::New(MY_NODE_ISOLATE_PRE KeyPut)->GetFunction()   );
+  proto->Set(String::NewSymbol("keyGet"), FunctionTemplate::New(MY_NODE_ISOLATE_PRE KeyGet)->GetFunction()   );
+  proto->Set(String::NewSymbol("keyRemove"), FunctionTemplate::New(MY_NODE_ISOLATE_PRE KeyRemove)->GetFunction()   );
+  proto->Set(String::NewSymbol("keyOperate"), FunctionTemplate::New(MY_NODE_ISOLATE_PRE KeyOperate)->GetFunction()   );
 
   client_constructor = Persistent<Function>::New(MY_NODE_ISOLATE_PRE tpl->GetFunction());
 }
@@ -272,6 +273,16 @@ Handle<Value> Client::IsConnected(const Arguments& args)
   Client *client = ObjectWrap::Unwrap<Client>(args.Holder());
 
   return scope.Close(client->connected ? True() : False());
+}
+
+Handle<Value> Client::IsConnecting(const Arguments& args)
+{
+  MY_NODE_ISOLATE_DECL
+  MY_HANDLESCOPE
+
+  Client *client = ObjectWrap::Unwrap<Client>(args.Holder());
+
+  return scope.Close(client->connecting ? True() : False());
 }
 
 Handle<Value> Client::Close(const Arguments& args)

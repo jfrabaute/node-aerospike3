@@ -28,6 +28,7 @@ private:
 private:
   static Handle<Value> Connect(const Arguments& args);
   static Handle<Value> IsConnected(const Arguments& args);
+  static Handle<Value> IsConnecting(const Arguments& args);
   static Handle<Value> Close(const Arguments& args);
 
   static Handle<Value> KeyExists(const Arguments& args);

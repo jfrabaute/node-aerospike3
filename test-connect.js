@@ -4,57 +4,34 @@
 var assert = require('assert'),
     aerospike = require('./aerospike');
 
-var client = aerospike.createClient();
+var client = aerospike.createClient({host: "1.1.1.1"});
+client.on('error', function(err) {
+  console.log("client.on('error') called");
+  assert.equal(err.code, 200);
+  assert.equal(client.isConnected(), false, "test client.isConnected()");
+  assert.equal(client.isConnecting(), false, "test client.isConnecting()");
 
-var testConnectionOk = function() {
-    console.log('testConnectionOk - start');
-    client.Connect({host: "1.1.1.1"}, function(err) {
-        assert.equal(err.code, 200);
-        assert.equal(client.IsConnected(), false, "test client.IsConnected()");
-
-        client.Connect({}, function(err) {
-            assert.equal(err, undefined, "test connect ok");
-            assert.equal(client.IsConnected(), true, "test client.IsConnected() on connect");
-            client.Close(function(err) {
-                assert.equal(err, undefined);
-                assert.equal(client.IsConnected(), false, "test client.IsConnected() on close");
-                global.gc();
-                console.log('END');
-                /*
-                client.Connect({host: "1.1.1.1"}, function(err) {
-                    assert.equal(err.code, 200);
-                    assert.equal(client.IsConnected(), false, "test client.IsConnected()");
-                });
-                */
-            });
-        });
+  client2 = aerospike.createClient();
+  client2.on('error', function(err) {
+    console.log("client2.on('error') called");
+    assert.equal(err, undefined, "test connect ok");
+    assert.equal(client.isConnected(), true, "test client.IsConnected() on connect");
+    assert.equal(client.isConnecting(), false, "test client.IsConnecting() on connect");
+    client.close(function(err) {
+      assert.equal(err, undefined);
+      assert.equal(client.isConnected(), false, "test client.IsConnected() on close");
+      global.gc();
+      console.log('END');
     });
-}
+  assert.equal(client2.isConnecting(), true);
+  assert.equal(client2.isConnected(), false)
+  });
+  client2.on('connect', function() {
+    console.log("client2.on('connect') called");
+    assert.equal(client.isConnected(), true, "test client.IsConnected() on connect");
+    assert.equal(client.isConnecting(), false, "test client.IsConnecting() on connect");
+  });
+});
 
-var i = 0;
-var testConnectionError = function() {
-    i++;
-    if (i < 2/*000*/)
-        client.Connect({host: "127.0.0.1", port: 9876}, function(err) {
-            assert.equal(err.code, 200);
-            assert.equal(client.IsConnected(), false, "test client.IsConnected() - error");
-            global.gc();
-            testConnectionError();
-        });
-    else
-        testConnectionOk();
-}
-
-testConnectionError();
-
-/*
-for (var i = 0 ; i < 10 ; i++)
-{
-    c = new aerospike.Client();
-    c.Connect({host: "192.0.2.0"}, function(err) {
-        assert.equal(err.code, 200);
-        console.log("c.IsConnected() = " + c.IsConnected());
-        assert.equal(c.IsConnected(), false, "test c.IsConnected()");
-    });
- }
-*/
+assert.equal(client.isConnecting(), true);
+assert.equal(client.isConnected(), false)
