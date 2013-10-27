@@ -1,9 +1,10 @@
 var aerospike;
 
 try {
-  aerospike = require('./build/Debug/aerospike');
+  aerospike = require('./build/Debug/aerospike_cpp');
 } catch (error) {
-  aerospike = require('./build/Release/aerospike');
+    console.log(error);
+  aerospike = require('./build/Release/aerospike_cpp');
 }
 
 module.exports = aerospike;

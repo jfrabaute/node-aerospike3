@@ -26,4 +26,4 @@ void InitAerospike(v8::Handle<v8::Object> target) {
 
 } // namespace nodejs_aerospike
 
-NODE_MODULE(aerospike, nodejs_aerospike::InitAerospike)
+NODE_MODULE(aerospike_cpp, nodejs_aerospike::InitAerospike)

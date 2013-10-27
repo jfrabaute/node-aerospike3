@@ -1,7 +1,7 @@
 {
   "targets": [
     {
-      "target_name": "aerospike",
+      "target_name": "aerospike_cpp",
       "sources": [
         "src/aerospike.cc",
         "src/aerospike_client.cc",
