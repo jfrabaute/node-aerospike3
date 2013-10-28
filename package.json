@@ -13,6 +13,9 @@
       "email": "jfr@core-services.fr"
     }
   ],
+  "dependencies": {
+    "async": "~0.2.9"
+  },
   "scripts": {
     "test": "for t in $(ls test/test-*); do node --expose-gc --trace-gc $t; done"
   }
