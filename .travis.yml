@@ -13,6 +13,7 @@ before_install:
   - wget http://www.aerospike.com/client_downloads/c/3.0.30/aerospike-client-c-3.0.30.ubuntu12.04.x86_64.tgz
   - tar -xf aerospike-client-c-3.0.30.ubuntu12.04.x86_64.tgz
   - sudo dpkg --install aerospike-client-c-3.0.30.ubuntu12.04.x86_64/aerospike-client-c-devel-3.0.30.ubuntu12.04.x86_64.deb
+  - sudo /etc/init.d/aerospike start
 
 install:
   - npm install
