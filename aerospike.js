@@ -22,7 +22,7 @@ function AsClient (hosts) {
 
   this._queue = [];
 
-  this._client.connect(hosts, function(err) {
+  this._client.connect({hosts: hosts}, function(err) {
     if (err) {
       self.emit('error', err);
     } else {

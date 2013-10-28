@@ -23,7 +23,7 @@ namespace {
 
   bool initConfigEntry(const Handle<Object> &object, uint32_t id, as_config &config)
   {
-    Handle<Value> port = object->Get(String::New("port"));
+    Handle<Value> port = object->Get(String::NewSymbol("port"));
     if (!port->IsUint32())
     {
       ThrowException(Exception::TypeError(String::New("\"port\" property is not a number in config object")));
@@ -31,7 +31,7 @@ namespace {
     }
     config.hosts[id].port = port->Uint32Value();
 
-    Handle<Value> addrJs = object->Get(String::New("host"));
+    Handle<Value> addrJs = object->Get(String::NewSymbol("host"));
     if (!addrJs->IsString())
     {
       ThrowException(Exception::TypeError(String::New("\"host\" property is not a string in config object")));
@@ -165,13 +165,21 @@ Handle<Value> Client::Connect(const Arguments& args)
   }
   cb = Local<Function>::Cast(args[1]);
 
-  if (!args[0]->IsArray())
+  if (!args[0]->IsObject())
   {
-    ThrowException(Exception::TypeError(String::New("Wrong first argument type (must be either object or array of objects)")));
+    ThrowException(Exception::TypeError(String::New("Wrong first argument type (must be an object)")));
+    return scope.Close(Undefined());
+  }
+  Handle<Object> obj = Handle<Object>::Cast(args[0]);
+
+  Handle<Value> v = obj->Get(String::NewSymbol("hosts"));
+  if (!v->IsArray())
+  {
+    ThrowException(Exception::TypeError(String::New("Object does not have a \"hosts\" property or it is not an array")));
     return scope.Close(Undefined());
   }
 
-  Handle<Array> array = Handle<Array>::Cast(args[0]);
+  Handle<Array> array = Handle<Array>::Cast(v);
   if (array->Length() > AS_CONFIG_HOSTS_SIZE)
   {
     ThrowException(Exception::TypeError(String::New("Too many hosts provided: The maximum number of possible host is 256.")));
