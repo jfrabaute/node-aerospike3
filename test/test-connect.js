@@ -13,19 +13,10 @@ client.on('error', function(err) {
 
   client2 = aerospike.createClient();
   client2.on('error', function(err) {
-    console.log("client2.on('error') called");
-    assert.equal(err, undefined, "test connect ok");
-    assert.equal(client.isConnected(), true, "test client.IsConnected() on connect");
-    assert.equal(client.isConnecting(), false, "test client.IsConnecting() on connect");
-    client.close(function(err) {
-      assert.equal(err, undefined);
-      assert.equal(client.isConnected(), false, "test client.IsConnected() on close");
-      global.gc();
-      console.log('END');
-    });
+    assert.equal(false, true);
+  });
   assert.equal(client2.isConnecting(), true);
   assert.equal(client2.isConnected(), false)
-  });
   client2.on('connect', function() {
     console.log("client2.on('connect') called");
     assert.equal(client.isConnected(), true, "test client.IsConnected() on connect");
