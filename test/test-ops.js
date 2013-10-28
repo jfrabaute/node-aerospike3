@@ -1,6 +1,6 @@
 var assert = require('assert'),
     async = require('async'),
-    aerospike = require('./aerospike');
+    aerospike = require('../aerospike');
 
 var client = aerospike.createClient();
 

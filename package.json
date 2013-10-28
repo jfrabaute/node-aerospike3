@@ -14,6 +14,6 @@
     }
   ],
   "scripts": {
-    "test": "for t in $(ls test-*); do node --expose-gc --trace-gc $t; done"
+    "test": "for t in $(ls test/test-*); do node --expose-gc --trace-gc $t; done"
   }
 }

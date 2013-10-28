@@ -2,7 +2,7 @@
 // valgrind --leak-check=full --show-reachable=yes node --expose-gc --trace-gc test-connect.js
 
 var assert = require('assert'),
-    aerospike = require('./aerospike');
+    aerospike = require('../aerospike');
 
 var client = aerospike.createClient({host: "1.1.1.1"});
 client.on('error', function(err) {
