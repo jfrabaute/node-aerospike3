@@ -25,9 +25,9 @@ function AsClient (hosts) {
   this._client.connect(hosts, function(err) {
     if (err) {
       self.emit('error', err);
-      return;
+    } else {
+      self.emit('connect');
     }
-    self.emit('connect');
     self._processQueue();
   });
 
