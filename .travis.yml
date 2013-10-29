@@ -17,6 +17,7 @@ before_install:
   - sleep 20
   - date
   - sudo tail -100 /var/log/aerospike/aerospike.log
+  - ifconfig
 
 install:
   - npm install
