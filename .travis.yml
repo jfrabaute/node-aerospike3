@@ -15,6 +15,8 @@ before_install:
   - sudo dpkg --install aerospike-client-c-3.0.30.ubuntu12.04.x86_64/aerospike-client-c-devel-3.0.30.ubuntu12.04.x86_64.deb
   - sudo /etc/init.d/aerospike start
   - sleep 20
+  - date
+  - sudo tail -100 /var/log/aerospike/aerospike.log
 
 install:
   - npm install
