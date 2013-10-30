@@ -16,4 +16,10 @@
 #  define MY_HANDLESCOPE v8::HandleScope scope;
 #endif
 
+#if NODE_MODULE_VERSION >= 11
+#define UV_PARAM_STATUS , int status
+#else
+#define UV_PARAM_STATUS
+#endif
+
 #endif // SRC_AEROSPIKE_H

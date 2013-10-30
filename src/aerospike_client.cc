@@ -218,7 +218,7 @@ Handle<Value> Client::Connect(const Arguments& args)
                     aerospike_destroy(&baton->client->as);
                 },
                 /*AsyncAfter*/
-                [] (uv_work_s* req, int status) {
+                [] (uv_work_s* req UV_PARAM_STATUS) {
                   MY_NODE_ISOLATE_DECL
                   MY_HANDLESCOPE
 
@@ -311,7 +311,7 @@ Handle<Value> Client::Close(const Arguments& args)
                   baton->client->close(*baton->error.get());
                 },
                 /*AsyncAfter*/
-                [] (uv_work_s* req, int status) {
+                [] (uv_work_s* req UV_PARAM_STATUS) {
                   MY_NODE_ISOLATE_DECL
                   MY_HANDLESCOPE
 
@@ -405,7 +405,7 @@ Handle<Value> Client::KeyExists(const Arguments& args)
                   aerospike_key_exists(&baton->client->as, baton->error.get(), NULL, &baton->key, &baton->result);
                 },
                 /*AsyncAfter*/
-                [] (uv_work_s* req, int status) {
+                [] (uv_work_s* req UV_PARAM_STATUS) {
                   MY_NODE_ISOLATE_DECL
                   MY_HANDLESCOPE
 
@@ -476,7 +476,7 @@ Handle<Value> Client::KeyPut(const Arguments& args)
                   as_record_destroy(&baton->record);
                 },
                 /*AsyncAfter*/
-                [] (uv_work_s* req, int status) {
+                [] (uv_work_s* req UV_PARAM_STATUS) {
                   MY_NODE_ISOLATE_DECL
                   MY_HANDLESCOPE
 
@@ -598,7 +598,7 @@ Handle<Value> Client::KeyGet(const Arguments& args)
                   }
                 },
                 /*AsyncAfter*/
-                [] (uv_work_s* req, int status) {
+                [] (uv_work_s* req UV_PARAM_STATUS) {
                   MY_NODE_ISOLATE_DECL
                   MY_HANDLESCOPE
 
@@ -706,7 +706,7 @@ Handle<Value> Client::KeyRemove(const Arguments& args)
                   aerospike_key_remove(&baton->client->as, baton->error.get(), NULL, &baton->key);
                 },
                 /*AsyncAfter*/
-                [] (uv_work_s* req, int status) {
+                [] (uv_work_s* req UV_PARAM_STATUS) {
                   MY_NODE_ISOLATE_DECL
                   MY_HANDLESCOPE
 
@@ -774,7 +774,7 @@ Handle<Value> Client::KeyOperate(const Arguments& args)
                   aerospike_key_operate(&baton->client->as, baton->error.get(), NULL, &baton->key, &baton->ops, &baton->record);
                 },
                 /*AsyncAfter*/
-                [] (uv_work_s* req, int status) {
+                [] (uv_work_s* req UV_PARAM_STATUS) {
                   MY_NODE_ISOLATE_DECL
                   MY_HANDLESCOPE
 
