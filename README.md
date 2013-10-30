@@ -3,6 +3,10 @@ node-aerospike3
 
 A NodeJS client for Aerospike 3 NoSQL DB.
 
+
+[![Build Status](https://travis-ci.org/jfrabaute/node-aerospike3.png?branch=master)](https://travis-ci.org/jfrabaute/node-aerospike3)
+
+
 Features
 --------
 
